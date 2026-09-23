@@ -77,6 +77,7 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
 
 .bubble-block .style-chip{position:absolute;top:50%;transform:translateY(-50%);z-index:12;opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:4px 9px;color:var(--accent2);box-shadow:0 3px 10px rgba(0,0,0,.08);white-space:nowrap}.bubble-block[data-side="left"] .style-chip{left:calc(100% + 10px)}.bubble-block[data-side="right"] .style-chip{right:calc(100% + 10px)}.bubble-block:hover .style-chip,.bubble-block.selected .style-chip{opacity:1;pointer-events:auto}
 .selection-toolbar{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9000;display:none;align-items:center;gap:5px;background:rgba(27,31,36,.96);border-radius:14px;padding:7px;box-shadow:0 10px 30px rgba(0,0,0,.24)}.selection-toolbar.show{display:flex}.selection-toolbar button{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:#fff;font-weight:750}.selection-toolbar button.active{background:#fff;color:#20252a}.selection-toolbar .sep{width:1px;height:22px;background:rgba(255,255,255,.18)}
+.mobile-canvas-actions{display:none}
 .mobile-settings-btn{display:none;position:fixed;right:14px;top:14px;z-index:8500;border:1px solid var(--line);background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .sheet-backdrop{position:fixed;inset:0;background:rgba(16,20,24,.46);z-index:9000;display:none}.sheet-backdrop.show{display:block}.inspector{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);z-index:9200;width:min(520px,100%);max-height:82vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -18px 50px rgba(0,0,0,.24);padding:16px 16px calc(22px + env(safe-area-inset-bottom));transition:transform .18s}.inspector.show{transform:translate(-50%,0)}.inspector-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.inspector-head h3{font-size:15px;margin:0}.inspector .close{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.inspector .disabled{opacity:.48;pointer-events:none}
 .capture-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:12000;background:#20252a;color:#fff;border-radius:999px;padding:8px 13px;font-size:12px;display:none}.capture-toast.show{display:block}
@@ -126,7 +127,13 @@ body.output-preview-lock{overflow:hidden!important}
 }
 
 @media (max-width:860px){
-  body{overflow:auto}body.sheet-lock{overflow:hidden}.app{display:block}.workspace{min-height:100vh;padding:72px 14px 90px;overflow:visible}.mobile-settings-btn{display:block}.sidebar{position:fixed;left:0;bottom:0;top:auto;width:100%;height:78vh;max-height:78vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;transform:translateY(105%);transition:transform .2s;z-index:9100;border-right:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -18px 50px rgba(0,0,0,.22)}.sidebar.mobile-open{transform:translateY(0)}.mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-14px;background:#fff;padding:4px 0 10px;z-index:2}.mobile-sheet-head strong{font-size:14px}.mobile-sheet-head button{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.brand{display:none}.canvas{box-shadow:0 8px 28px rgba(0,0,0,.15)}.selection-toolbar{bottom:max(10px,env(safe-area-inset-bottom))}.block-tools{right:-28px}.block-list{padding-left:38px!important;padding-right:38px!important}
+  body{overflow:auto}body.sheet-lock{overflow:hidden}.app{display:block}.workspace{min-height:100vh;padding:72px 14px 90px;overflow:visible;flex-direction:column;align-items:center;justify-content:flex-start}.mobile-settings-btn{display:block}.sidebar{position:fixed;left:0;bottom:0;top:auto;width:100%;height:78vh;max-height:78vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;transform:translateY(105%);transition:transform .2s;z-index:9100;border-right:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -18px 50px rgba(0,0,0,.22)}.sidebar.mobile-open{transform:translateY(0)}.mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-14px;background:#fff;padding:4px 0 10px;z-index:2}.mobile-sheet-head strong{font-size:14px}.mobile-sheet-head button{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.brand{display:none}.canvas{box-shadow:0 8px 28px rgba(0,0,0,.15)}.selection-toolbar{bottom:max(10px,env(safe-area-inset-bottom))}.block-tools{right:-28px}.block-list{padding-left:var(--mobile-pad-x,42px);padding-right:var(--mobile-pad-x,42px)}
+  .sidebar .actions{display:none}
+  .mobile-canvas-actions{
+    display:flex;width:min(100%,600px);gap:8px;margin-top:14px;
+  }
+  .mobile-canvas-actions .btn{flex:1;min-width:0;padding:10px 8px;font-size:12px}
+
 }
 </style>
 <style id="customFontStyles"></style>
@@ -228,6 +235,10 @@ body.output-preview-lock{overflow:hidden!important}
         <div class="canvas-overlay" id="canvasOverlay"></div>
         <div class="block-list" id="blockList"></div>
       </div>
+    </div>
+    <div class="mobile-canvas-actions" id="mobileCanvasActions">
+      <button class="btn accent" type="button" id="mobilePreviewBtn">출력 미리보기</button>
+      <button class="btn danger" type="button" id="mobileResetBtn">캔버스 내용 초기화</button>
     </div>
   </main>
 </div>
@@ -466,7 +477,9 @@ function renderBackground(){
     bgImageLayer.style.filter=`blur(${b.blur}px)`;
   }
   const v=+b.brightness||0; overlay.style.background=v<0?`rgba(0,0,0,${Math.min(.8,-v/100)})`:v>0?`rgba(255,255,255,${Math.min(.8,v/100)})`:'transparent';
-  blockList.style.padding=`${b.padY}px ${b.padX}px`; canvas.style.borderRadius=b.round?'14px':'0';
+  blockList.style.padding=`${b.padY}px ${b.padX}px`;
+  blockList.style.setProperty('--mobile-pad-x',b.padX+'px');
+  canvas.style.borderRadius=b.round?'14px':'0';
   relayout();
 }
 
@@ -1119,11 +1132,20 @@ async function downloadPreparedOutput(){
 }
 
 $('#btnSave').addEventListener('click',openOutputPreview);
+$('#mobilePreviewBtn').addEventListener('click',openOutputPreview);
 $('#previewBack').addEventListener('click',closeOutputPreview);
 $('#previewDownload').addEventListener('click',downloadPreparedOutput);
 window.addEventListener('resize',()=>{if(preparedOutput)fitOutputPreview();});
 
-$('#btnReset').addEventListener('click',()=>{if(!confirm('캔버스의 작성 내용만 모두 지울까요?\n글꼴·글자크기·색상 히스토리·배경·말풍선 기본설정은 유지됩니다.'))return; closeInspector();hideSelectionToolbar();bubbleOverrides.clear();activeHtmlId=null;$('#sec-html').style.display='none';$('#htmlCodeInput').value='';blockList.innerHTML='';blockList.appendChild(createBlock('paragraph'));refreshSlots();renderBackground();applyGlobalText();relayout()});
+function resetCanvasContent(){
+  if(!confirm('캔버스의 작성 내용만 모두 지울까요?\n글꼴·글자크기·색상 히스토리·배경·말풍선 기본설정은 유지됩니다.'))return;
+  closeInspector();hideSelectionToolbar();bubbleOverrides.clear();activeHtmlId=null;
+  $('#sec-html').style.display='none';$('#htmlCodeInput').value='';
+  blockList.innerHTML='';blockList.appendChild(createBlock('paragraph'));
+  refreshSlots();renderBackground();applyGlobalText();relayout();
+}
+$('#btnReset').addEventListener('click',resetCanvasContent);
+$('#mobileResetBtn').addEventListener('click',resetCanvasContent);
 
 async function init(){
   loadSettings(); const storedFonts=await idbGet('customFonts')||[];installCustomFonts(storedFonts);assets.bgImage=await idbGet('bgImage');assets.leftProfile=await idbGet('leftProfile');assets.rightProfile=await idbGet('rightProfile');
