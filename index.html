@@ -80,9 +80,51 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
 .mobile-settings-btn{display:none;position:fixed;right:14px;top:14px;z-index:8500;border:1px solid var(--line);background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.12)}
 .sheet-backdrop{position:fixed;inset:0;background:rgba(16,20,24,.46);z-index:9000;display:none}.sheet-backdrop.show{display:block}.inspector{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);z-index:9200;width:min(520px,100%);max-height:82vh;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -18px 50px rgba(0,0,0,.24);padding:16px 16px calc(22px + env(safe-area-inset-bottom));transition:transform .18s}.inspector.show{transform:translate(-50%,0)}.inspector-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.inspector-head h3{font-size:15px;margin:0}.inspector .close{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.inspector .disabled{opacity:.48;pointer-events:none}
 .capture-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:12000;background:#20252a;color:#fff;border-radius:999px;padding:8px 13px;font-size:12px;display:none}.capture-toast.show{display:block}
+.capture-bubble-shadow-layer{position:absolute;inset:0;pointer-events:none;z-index:1;overflow:visible}
+.capture-bubble-shadow-piece{position:absolute;pointer-events:none}
 .canvas.capturing{box-shadow:none}.canvas.capturing .insert-slot,.canvas.capturing .block-tools,.canvas.capturing .style-chip{display:none!important}
 .actions{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
 @media (hover:none){.block-tools{opacity:1;pointer-events:auto;right:-27px}.slot-plus{opacity:.65}.bubble-block .style-chip{opacity:.8;pointer-events:auto}}
+
+.output-preview{
+  position:fixed;inset:0;z-index:12000;display:none;
+  background:#eef1f4;overflow:auto;
+}
+.output-preview.show{display:block}
+.output-preview-bar{
+  position:sticky;top:0;z-index:5;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 14px;background:rgba(255,255,255,.96);
+  border-bottom:1px solid var(--line);backdrop-filter:blur(10px);
+}
+.output-preview-title{font-size:13px;font-weight:750;color:var(--text)}
+.output-preview-actions{display:flex;gap:7px}
+.output-preview-stage{
+  min-height:calc(100vh - 58px);
+  padding:28px 18px 70px;
+  display:flex;justify-content:center;align-items:flex-start;
+}
+.output-preview-scale-wrap{position:relative}
+.output-preview .canvas{
+  transform:none!important;
+  box-shadow:0 12px 36px rgba(0,0,0,.14);
+  user-select:text;
+}
+.output-preview .canvas.capturing{box-shadow:none}
+.output-preview .insert-slot,
+.output-preview .block-tools,
+.output-preview .style-chip{display:none!important}
+.output-preview [contenteditable]{outline:none!important}
+.output-preview-note{font-size:11px;color:var(--muted);margin-left:8px}
+body.output-preview-lock{overflow:hidden!important}
+@media(max-width:680px){
+  .output-preview-bar{align-items:flex-start;flex-direction:column}
+  .output-preview-actions{width:100%}
+  .output-preview-actions .btn{flex:1}
+  .output-preview-note{margin:0;font-size:10.5px}
+  .output-preview-stage{padding:18px 10px 60px}
+}
+
 @media (max-width:860px){
   body{overflow:auto}body.sheet-lock{overflow:hidden}.app{display:block}.workspace{min-height:100vh;padding:72px 14px 90px;overflow:visible}.mobile-settings-btn{display:block}.sidebar{position:fixed;left:0;bottom:0;top:auto;width:100%;height:78vh;max-height:78vh;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;transform:translateY(105%);transition:transform .2s;z-index:9100;border-right:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -18px 50px rgba(0,0,0,.22)}.sidebar.mobile-open{transform:translateY(0)}.mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-14px;background:#fff;padding:4px 0 10px;z-index:2}.mobile-sheet-head strong{font-size:14px}.mobile-sheet-head button{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.brand{display:none}.canvas{box-shadow:0 8px 28px rgba(0,0,0,.15)}.selection-toolbar{bottom:max(10px,env(safe-area-inset-bottom))}.block-tools{right:-28px}.block-list{padding-left:38px!important;padding-right:38px!important}
 }
@@ -170,8 +212,8 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
     </div>
 
     <div class="group actions">
-      <button class="btn accent wide" id="btnSave">이미지로 저장하기 (PNG)</button>
-      <button class="btn danger wide" id="btnReset" style="margin-top:7px">전체 초기화</button>
+      <button class="btn accent wide" id="btnSave">출력 미리보기</button>
+      <button class="btn danger wide" id="btnReset" style="margin-top:7px">캔버스 내용 초기화</button>
       <p class="saved-note">디자인 설정은 이 브라우저에 자동 저장됩니다.</p>
     </div>
   </aside>
@@ -213,6 +255,23 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
     <div class="field"><label>프로필 상하 이동</label><div class="row"><input type="range" id="insProfileY" min="-40" max="40"><span class="val" id="insProfileYVal"></span></div></div>
   </div>
 </div>
+
+<div class="output-preview" id="outputPreview" aria-hidden="true">
+  <div class="output-preview-bar">
+    <div>
+      <span class="output-preview-title">출력 미리보기</span>
+      <span class="output-preview-note">아래 모습이 PNG 출력용 레이아웃입니다.</span>
+    </div>
+    <div class="output-preview-actions">
+      <button class="btn" type="button" id="previewBack">돌아가기</button>
+      <button class="btn accent" type="button" id="previewDownload">PNG 저장</button>
+    </div>
+  </div>
+  <div class="output-preview-stage" id="outputPreviewStage">
+    <div class="output-preview-scale-wrap" id="outputPreviewWrap"></div>
+  </div>
+</div>
+
 <div class="capture-toast" id="captureToast">이미지 저장 중…</div>
 
 <script>
@@ -383,8 +442,17 @@ function applyBubbleStyle(block){
   frame.classList.toggle('hidden',!cfg.showProfile); const src=cfg.profile||null; setProfileSource(img,src); frame.classList.toggle('has-img',!!src);
   img.style.transform=`translate(-50%,-50%) translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
 }
+function applyParagraphStyle(block){
+  if(!block || !block.classList.contains('paragraph-block')) return;
+  const el=block.querySelector('.editable');
+  if(!el)return;
+  el.style.fontFamily=fontCSSValue(state.fontFamily);
+  el.style.fontSize=state.fontSize+'px';
+  el.style.lineHeight=state.lineHeight;
+  el.style.color=state.textColor;
+}
 function applyGlobalText(){
-  $$('.paragraph-block .editable').forEach(el=>{ el.style.fontFamily=fontCSSValue(state.fontFamily); el.style.fontSize=state.fontSize+'px'; el.style.lineHeight=state.lineHeight; el.style.color=state.textColor; });
+  $$('.paragraph-block').forEach(applyParagraphStyle);
   $$('.bubble-block').forEach(applyBubbleStyle);
 }
 function renderBackground(){
@@ -570,7 +638,7 @@ function createBlock(type,side){
     block.innerHTML=`${tools}<div class="block-inner"><div class="bubble-row"><div class="profile-frame"><img alt=""><span class="profile-placeholder">◉</span></div><div class="bubble-stack"><div class="bubble-shell"><svg class="bubble-art" aria-hidden="true" viewBox="0 0 10 10" preserveAspectRatio="none"><defs><filter class="bubble-filter" filterUnits="userSpaceOnUse"><feGaussianBlur class="bubble-blur" in="SourceAlpha" stdDeviation="3" result="blur"/><feOffset class="bubble-offset" in="blur" dx="0" dy="3" result="offsetBlur"/><feFlood class="bubble-flood" flood-color="#000" flood-opacity="0.14" result="shadowColor"/><feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path class="bubble-main" d="M0 0"></path></svg><div class="editable" contenteditable="true" data-placeholder="말풍선을 입력하세요"></div></div><button class="style-chip" type="button" contenteditable="false">개별 스타일</button></div></div></div>`;
     bubbleOverrides.set(id,{useDefault:true});
   }
-  attachBlockEvents(block); if(type==='paragraph') applyGlobalText(); else if(type==='bubble') applyBubbleStyle(block); return block;
+  attachBlockEvents(block); if(type==='paragraph') applyParagraphStyle(block); else if(type==='bubble') applyBubbleStyle(block); return block;
 }
 function attachBlockEvents(block){
   const stop=e=>{e.preventDefault();e.stopPropagation();};
@@ -591,8 +659,6 @@ function attachBlockEvents(block){
   });
   if(block.classList.contains('bubble-block')){
     block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openBubbleInspector(block)});
-    block.querySelector('.bubble-shell').addEventListener('click',e=>{ if(e.target.closest('.editable')) return; openBubbleInspector(block); });
-    block.querySelector('.profile-frame').addEventListener('click',e=>{ e.stopPropagation(); openBubbleInspector(block); });
   }
   if(block.classList.contains('html-block')){
     block.querySelector('.html-preview').addEventListener('click',e=>{
@@ -764,46 +830,300 @@ function updateFmtStates(){try{$('#fmtBold').classList.toggle('active',document.
 
 function openSidebar(){if(window.innerWidth>860)return;$('#sidebar').classList.add('mobile-open');showBackdrop();hideSelectionToolbar()}function closeSidebar(){$('#sidebar').classList.remove('mobile-open');hideBackdropIfFree()}$('#mobileSettingsBtn').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();openSidebar()});$('#closeSidebar').addEventListener('click',e=>{e.preventDefault();e.stopPropagation();closeSidebar()});
 
-function buildCaptureHighlights(){
+function buildCaptureHighlights(root){
   const records=[], layers=[];
-  $$('.editable *').forEach(el=>{
+  root.querySelectorAll('.editable *').forEach(el=>{
     const bg=el.style && el.style.backgroundColor;
     if(!bg || bg==='transparent' || bg==='rgba(0, 0, 0, 0)') return;
     const host=el.closest('.bubble-shell') || el.closest('.block-inner');
-    if(!host) return;
+    if(!host || !root.contains(host)) return;
+
     let layer=host.querySelector(':scope > .capture-highlight-layer');
-    if(!layer){ layer=document.createElement('div'); layer.className='capture-highlight-layer'; host.prepend(layer); layers.push(layer); }
+    if(!layer){
+      layer=document.createElement('div');
+      layer.className='capture-highlight-layer';
+      host.prepend(layer);
+      layers.push(layer);
+    }
+
+    // 최종 출력 DOM이 실제로 배치된 뒤의 줄별 사각형 좌표를 사용한다.
+    const range=document.createRange();
+    range.selectNodeContents(el);
     const hr=host.getBoundingClientRect();
-    Array.from(el.getClientRects()).forEach(r=>{
-      if(r.width<=0 || r.height<=0) return;
-      const d=document.createElement('div'); d.className='capture-highlight-rect';
-      d.style.left=(r.left-hr.left)+'px'; d.style.top=(r.top-hr.top)+'px'; d.style.width=r.width+'px'; d.style.height=r.height+'px'; d.style.backgroundColor=bg;
+    Array.from(range.getClientRects()).forEach(r=>{
+      if(r.width<=.5 || r.height<=.5) return;
+      const d=document.createElement('div');
+      d.className='capture-highlight-rect';
+      d.style.left=(r.left-hr.left)+'px';
+      d.style.top=(r.top-hr.top)+'px';
+      d.style.width=r.width+'px';
+      d.style.height=r.height+'px';
+      d.style.backgroundColor=bg;
       layer.appendChild(d);
     });
-    records.push([el,bg]); el.style.backgroundColor='transparent';
+
+    records.push([el,bg]);
+    el.style.backgroundColor='transparent';
   });
-  return ()=>{ records.forEach(([el,bg])=>{ if(document.body.contains(el)) el.style.backgroundColor=bg; }); layers.forEach(x=>x.remove()); };
+  return ()=>{
+    records.forEach(([el,bg])=>{ if(document.body.contains(el)) el.style.backgroundColor=bg; });
+    layers.forEach(x=>x.remove());
+  };
 }
-function normalizeOutputPng(dataUrl,w,h,fill){ return new Promise((resolve,reject)=>{ const img=new Image(); img.onload=()=>{try{const c=document.createElement('canvas');c.width=w;c.height=h;const ctx=c.getContext('2d');ctx.fillStyle=fill||'#fff';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);resolve(c.toDataURL('image/png'));}catch(e){reject(e)}};img.onerror=reject;img.src=dataUrl;}); }
-async function saveImage(){
-  hideSelectionToolbar();closeInspector();closeSidebar();const s=window.getSelection();if(s)s.removeAllRanges(); if(document.activeElement?.blur)document.activeElement.blur(); $$('.content-block.selected').forEach(b=>b.classList.remove('selected'));
-  const toast=$('#captureToast'),btn=$('#btnSave'); toast.classList.add('show');btn.disabled=true;canvas.classList.add('capturing'); const prev=canvas.style.transform; canvas.style.transform='none'; let cleanupHighlights=null;
+
+function buildCaptureBubbleShadows(root){
+  const created=[];
+  Array.from(root.querySelectorAll('.bubble-block')).forEach(block=>{
+    const shell=block.querySelector('.bubble-shell');
+    const stack=block.querySelector('.bubble-stack');
+    if(!shell || !stack)return;
+
+    const cfg=effectiveBubble(block);
+    const strength=clamp(+cfg.shadow||0,0,100);
+    if(strength<=0)return;
+
+    // html-to-image가 box-shadow blur를 누락하는 환경을 위한 출력 전용 shadow.
+    const layer=document.createElement('div');
+    layer.className='capture-bubble-shadow-layer';
+
+    const isLeft=block.dataset.side==='left';
+    const radius=isLeft ? '24px 24px 24px 0' : '24px 24px 0 24px';
+    const w=shell.offsetWidth, h=shell.offsetHeight;
+    const steps=[
+      {y:1,spread:0,a:.030},
+      {y:2,spread:.5,a:.026},
+      {y:3,spread:1,a:.021},
+      {y:4,spread:1.5,a:.016},
+      {y:5,spread:2,a:.011},
+      {y:6,spread:2.6,a:.007}
+    ];
+    const factor=strength/60;
+
+    steps.forEach(s=>{
+      const d=document.createElement('div');
+      d.className='capture-bubble-shadow-piece';
+      const sp=s.spread;
+      d.style.left=(-sp)+'px';
+      d.style.top=(s.y-sp)+'px';
+      d.style.width=(w+sp*2)+'px';
+      d.style.height=(h+sp*2)+'px';
+      d.style.borderRadius=radius;
+      d.style.background='rgba(0,0,0,'+Math.min(.18,s.a*factor).toFixed(4)+')';
+      layer.appendChild(d);
+    });
+
+    stack.insertBefore(layer,stack.firstChild);
+    created.push(layer);
+  });
+  return ()=>created.forEach(el=>el.remove());
+}
+
+function normalizeOutputPng(dataUrl,w,h,fill){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const c=document.createElement('canvas');
+        c.width=w;c.height=h;
+        const ctx=c.getContext('2d');
+        ctx.fillStyle=fill||'#fff';
+        ctx.fillRect(0,0,w,h);
+        ctx.drawImage(img,0,0,w,h);
+        resolve(c.toDataURL('image/png'));
+      }catch(e){reject(e)}
+    };
+    img.onerror=reject;img.src=dataUrl;
+  });
+}
+
+let preparedOutput=null;
+
+function stripIds(node){
+  node.querySelectorAll('[id]').forEach(el=>el.removeAttribute('id'));
+}
+
+function prepareOutputClone(){
+  const clone=canvas.cloneNode(true);
+  stripIds(clone);
+  clone.classList.remove('capturing');
+  clone.style.transform='none';
+  clone.style.width='600px';
+  clone.style.boxShadow='none';
+
+  clone.querySelectorAll('.insert-slot,.block-tools,.style-chip').forEach(el=>el.remove());
+  clone.querySelectorAll('[contenteditable]').forEach(el=>{
+    el.removeAttribute('contenteditable');
+    el.setAttribute('aria-readonly','true');
+  });
+  clone.querySelectorAll('.content-block.selected').forEach(el=>el.classList.remove('selected'));
+
+  // 현재 화면에서 실제 적용 중인 폰트/크기/행간을 출력 복제본에도 확정값으로 심는다.
+  const srcEditables=Array.from(canvas.querySelectorAll('.editable'));
+  const dstEditables=Array.from(clone.querySelectorAll('.editable'));
+  srcEditables.forEach((src,i)=>{
+    const dst=dstEditables[i];
+    if(!dst)return;
+    const cs=getComputedStyle(src);
+    dst.style.fontFamily=cs.fontFamily;
+    dst.style.fontSize=cs.fontSize;
+    dst.style.lineHeight=cs.lineHeight;
+    dst.style.letterSpacing=cs.letterSpacing;
+    dst.style.fontWeight=cs.fontWeight;
+    dst.style.fontStyle=cs.fontStyle;
+    dst.style.textAlign=cs.textAlign;
+  });
+
+  // 말풍선 본체 크기도 현재 편집 화면과 최대한 동일하게 시작시킨다.
+  const srcShells=Array.from(canvas.querySelectorAll('.bubble-shell'));
+  const dstShells=Array.from(clone.querySelectorAll('.bubble-shell'));
+  srcShells.forEach((src,i)=>{
+    const dst=dstShells[i];
+    if(!dst)return;
+    const cs=getComputedStyle(src);
+    dst.style.paddingTop=cs.paddingTop;
+    dst.style.paddingRight=cs.paddingRight;
+    dst.style.paddingBottom=cs.paddingBottom;
+    dst.style.paddingLeft=cs.paddingLeft;
+  });
+
+  return clone;
+}
+
+function fitOutputPreview(){
+  if(!preparedOutput)return;
+  const wrap=$('#outputPreviewWrap');
+  const stage=$('#outputPreviewStage');
+  const avail=Math.max(280,stage.clientWidth-20);
+  const s=Math.min(1,avail/600);
+  preparedOutput.style.transformOrigin='top left';
+  preparedOutput.style.transform=`scale(${s})`;
+  wrap.style.width=(600*s)+'px';
+  wrap.style.height=(preparedOutput.offsetHeight*s)+'px';
+}
+
+async function openOutputPreview(){
+  hideSelectionToolbar();closeInspector();closeSidebar();
+  const sel=window.getSelection();if(sel)sel.removeAllRanges();
+  if(document.activeElement?.blur)document.activeElement.blur();
+  $$('.content-block.selected').forEach(b=>b.classList.remove('selected'));
+
+  const overlay=$('#outputPreview'),wrap=$('#outputPreviewWrap'),btn=$('#btnSave'),toast=$('#captureToast');
+  btn.disabled=true;toast.textContent='출력 미리보기 준비 중…';toast.classList.add('show');
+
   try{
-    await document.fonts.ready; const profileImgs=$$('.profile-frame img[src]'); await Promise.all(profileImgs.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve())); profileImgs.forEach(fitProfileImage); await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r))); cleanupHighlights=buildCaptureHighlights(); await new Promise(r=>requestAnimationFrame(r));
-    const w=600,h=Math.ceil(canvas.scrollHeight); const maxPixels=20_000_000; let ratio=Math.min(3,Math.sqrt(maxPixels/(w*h))); ratio=Math.max(1.5,ratio); const captureBg=state.bg.mode==='solid'?state.bg.color:'#ffffff';
+    await document.fonts.ready;
+    const profileImgs=$$('.profile-frame img[src]');
+    await Promise.all(profileImgs.map(img=>img.decode?img.decode().catch(()=>{}):Promise.resolve()));
+    profileImgs.forEach(fitProfileImage);
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+    if(preparedOutput)preparedOutput.remove();
+    preparedOutput=prepareOutputClone();
+    wrap.innerHTML='';
+    wrap.appendChild(preparedOutput);
+
+    overlay.classList.add('show');
+    overlay.setAttribute('aria-hidden','false');
+    document.body.classList.add('output-preview-lock');
+
+    // DOM을 실제 화면에 올린 뒤 브라우저가 최종 줄바꿈/높이를 계산하게 한다.
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+    // 형광펜은 이 최종 레이아웃 좌표에서 다시 만든다.
+    preparedOutput._cleanupHighlights=buildCaptureHighlights(preparedOutput);
+    preparedOutput._cleanupShadows=buildCaptureBubbleShadows(preparedOutput);
+
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    fitOutputPreview();
+  }catch(err){
+    alert('출력 미리보기 준비 중 문제가 발생했어요.\n'+err);
+    closeOutputPreview();
+  }finally{
+    btn.disabled=false;toast.classList.remove('show');toast.textContent='이미지 저장 중…';
+  }
+}
+
+function closeOutputPreview(){
+  const overlay=$('#outputPreview');
+  overlay.classList.remove('show');
+  overlay.setAttribute('aria-hidden','true');
+  document.body.classList.remove('output-preview-lock');
+  if(preparedOutput){
+    try{preparedOutput._cleanupHighlights?.()}catch(e){}
+    try{preparedOutput._cleanupShadows?.()}catch(e){}
+    preparedOutput.remove();
+    preparedOutput=null;
+  }
+  $('#outputPreviewWrap').innerHTML='';
+}
+
+async function downloadPreparedOutput(){
+  if(!preparedOutput)return;
+  const btn=$('#previewDownload'),toast=$('#captureToast');
+  btn.disabled=true;toast.textContent='PNG 저장 중…';toast.classList.add('show');
+
+  // 화면에서는 축소되어 있을 수 있으므로 캡처 순간만 600px 원본 스케일로.
+  const prevTransform=preparedOutput.style.transform;
+  preparedOutput.style.transform='none';
+  preparedOutput.classList.add('capturing');
+
+  try{
+    await document.fonts.ready;
+    await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+
+    const w=600,h=Math.ceil(preparedOutput.scrollHeight);
+    const maxPixels=20_000_000;
+    let ratio=Math.min(3,Math.sqrt(maxPixels/(w*h)));
+    ratio=Math.max(1.5,ratio);
+    const captureBg=state.bg.mode==='solid'?state.bg.color:'#ffffff';
+
     let dataUrl;
     try{
-      let fontEmbedCSS='';try{fontEmbedCSS=await window.htmlToImage.getFontEmbedCSS(canvas)}catch(e){}
-      dataUrl=await window.htmlToImage.toPng(canvas,{width:w,height:h,pixelRatio:ratio,cacheBust:true,backgroundColor:captureBg,skipAutoScale:true,fontEmbedCSS,style:{transform:'none',margin:'0',width:w+'px',height:h+'px',boxShadow:'none',backgroundColor:captureBg}});
+      let fontEmbedCSS='';
+      try{fontEmbedCSS=await window.htmlToImage.getFontEmbedCSS(preparedOutput)}catch(e){}
+      dataUrl=await window.htmlToImage.toPng(preparedOutput,{
+        width:w,height:h,pixelRatio:ratio,cacheBust:true,
+        backgroundColor:captureBg,skipAutoScale:true,fontEmbedCSS,
+        style:{
+          transform:'none',margin:'0',width:w+'px',height:h+'px',
+          boxShadow:'none',backgroundColor:captureBg
+        }
+      });
     }catch(err){
-      const hc=await window.html2canvas(canvas,{scale:Math.min(2.5,ratio),backgroundColor:captureBg,useCORS:true,logging:false,width:w,height:h,scrollX:0,scrollY:0}); dataUrl=hc.toDataURL('image/png');
+      const hc=await window.html2canvas(preparedOutput,{
+        scale:Math.min(2.5,ratio),backgroundColor:captureBg,
+        useCORS:true,logging:false,width:w,height:h,scrollX:0,scrollY:0
+      });
+      dataUrl=hc.toDataURL('image/png');
     }
-    dataUrl=await normalizeOutputPng(dataUrl,Math.max(1,Math.round(w*ratio)),Math.max(1,Math.round(h*ratio)),captureBg);
-    const a=document.createElement('a');a.href=dataUrl;a.download='지문_발췌_v2_'+Date.now()+'.png';document.body.appendChild(a);a.click();a.remove();
-  }catch(err){alert('이미지 저장 중 문제가 발생했어요.\n'+err)}finally{if(cleanupHighlights)cleanupHighlights();canvas.classList.remove('capturing');canvas.style.transform=prev;btn.disabled=false;toast.classList.remove('show');relayout()}
+
+    dataUrl=await normalizeOutputPng(
+      dataUrl,
+      Math.max(1,Math.round(w*ratio)),
+      Math.max(1,Math.round(h*ratio)),
+      captureBg
+    );
+
+    const a=document.createElement('a');
+    a.href=dataUrl;
+    a.download='지문_발췌_v2_'+Date.now()+'.png';
+    document.body.appendChild(a);a.click();a.remove();
+  }catch(err){
+    alert('이미지 저장 중 문제가 발생했어요.\n'+err);
+  }finally{
+    preparedOutput.classList.remove('capturing');
+    preparedOutput.style.transform=prevTransform;
+    btn.disabled=false;toast.classList.remove('show');toast.textContent='이미지 저장 중…';
+    fitOutputPreview();
+  }
 }
-$('#btnSave').addEventListener('click',saveImage);
-$('#btnReset').addEventListener('click',async()=>{if(!confirm('문서와 저장된 디자인 설정을 모두 초기화할까요?'))return; localStorage.removeItem(STORAGE_KEY);await idbClear();state=deepClone(DEFAULTS);assets={bgImage:null,leftProfile:null,rightProfile:null};installCustomFonts([]);bubbleOverrides.clear();activeHtmlId=null;$('#sec-html').style.display='none';$('#htmlCodeInput').value='';blockList.innerHTML='';blockList.appendChild(createBlock('paragraph'));refreshSlots();renderControls();renderBackground();applyGlobalText();relayout()});
+
+$('#btnSave').addEventListener('click',openOutputPreview);
+$('#previewBack').addEventListener('click',closeOutputPreview);
+$('#previewDownload').addEventListener('click',downloadPreparedOutput);
+window.addEventListener('resize',()=>{if(preparedOutput)fitOutputPreview();});
+
+$('#btnReset').addEventListener('click',()=>{if(!confirm('캔버스의 작성 내용만 모두 지울까요?\n글꼴·글자크기·색상 히스토리·배경·말풍선 기본설정은 유지됩니다.'))return; closeInspector();hideSelectionToolbar();bubbleOverrides.clear();activeHtmlId=null;$('#sec-html').style.display='none';$('#htmlCodeInput').value='';blockList.innerHTML='';blockList.appendChild(createBlock('paragraph'));refreshSlots();renderBackground();applyGlobalText();relayout()});
 
 async function init(){
   loadSettings(); const storedFonts=await idbGet('customFonts')||[];installCustomFonts(storedFonts);assets.bgImage=await idbGet('bgImage');assets.leftProfile=await idbGet('leftProfile');assets.rightProfile=await idbGet('rightProfile');
