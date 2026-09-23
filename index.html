@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>지문 발췌기 v2</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<style>
+:root{
+  --bg:#ffffff; --panel:#f5f7f9; --panel2:#eef2f5; --line:#dde4ea;
+  --accent:#74a5c2; --accent2:#517f9d; --text:#2b3138; --muted:#6a7480;
+  --danger:#d9695c; --paper:#e8ebef; --radius:10px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:'Pretendard','Pretendard Variable',system-ui,sans-serif;color:var(--text);background:var(--paper)}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.app{display:flex;min-height:100vh}
+.sidebar{width:360px;flex:0 0 360px;height:100vh;overflow:auto;background:#fff;border-right:1px solid var(--line);padding:18px 16px 64px;position:sticky;top:0;z-index:100}
+.brand{display:flex;align-items:center;gap:11px;padding-bottom:14px;margin-bottom:16px;border-bottom:1px solid var(--line)}
+.brand .mark{width:30px;height:30px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fff}
+.brand h1{font-size:16px;margin:0}.brand small{display:block;color:var(--muted);font-size:10px;margin-top:1px;font-weight:500}
+.mobile-sheet-head{display:none}
+.group{margin-bottom:14px}.glabel{font-size:11px;font-weight:800;letter-spacing:.45px;color:var(--accent2);text-transform:uppercase;margin:0 0 8px 2px}
+.field{margin-bottom:11px}.field:last-child{margin-bottom:0}.field>label,.mini-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.row{display:flex;gap:8px;align-items:center}.row.wrap{flex-wrap:wrap}
+input[type="text"],select{width:100%;background:#fff;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;outline:none}
+input[type="color"]{width:38px;height:34px;padding:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;flex:0 0 auto}
+input[type="color"]::-webkit-color-swatch-wrapper{padding:3px}input[type="color"]::-webkit-color-swatch{border:none;border-radius:5px}
+input[type="range"]{appearance:none;-webkit-appearance:none;width:100%;height:4px;background:var(--line);border-radius:4px;outline:none}
+input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;box-shadow:0 0 0 1px var(--line)}
+input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff}
+.val{font-size:11.5px;color:var(--accent2);min-width:45px;text-align:right;font-variant-numeric:tabular-nums}
+.btn{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:8px;padding:8px 11px;font-size:12.5px;font-weight:650;transition:.12s;white-space:nowrap}.btn:hover{border-color:var(--accent);color:var(--accent2)}.btn:active{transform:translateY(1px)}.btn.wide{width:100%}.btn.sm{padding:6px 9px;font-size:12px}.btn.tiny{padding:5px 8px;font-size:11.5px}.btn.accent{background:var(--accent);border-color:var(--accent);color:#fff}.btn.accent:hover{background:var(--accent2);border-color:var(--accent2);color:#fff}.btn.danger{color:var(--danger);border-color:transparent;background:transparent}.btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.file-btn{position:relative;overflow:hidden}.file-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%}
+.collapse{border:1px solid var(--line);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;background:var(--panel)}
+.collapse>.head{width:100%;border:0;background:transparent;text-align:left;padding:13px 14px;font-size:13.5px;font-weight:750;display:flex;justify-content:space-between;align-items:center}.collapse>.head .chev{transition:.18s;color:var(--muted)}.collapse.open>.head .chev{transform:rotate(180deg)}.collapse>.body{display:none;padding:12px 14px 15px;border-top:1px solid var(--line)}.collapse.open>.body{display:block}
+.seg{display:flex;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}.seg .btn{flex:1;border:0;background:transparent}.seg .btn.active{background:var(--accent);color:#fff}
+.subcard{background:#fff;border:1px solid var(--line);border-radius:9px;padding:11px;margin-top:10px}.subcard h4{margin:0 0 10px;font-size:12.5px;color:var(--accent2)}
+.hint{font-size:10.8px;color:var(--muted);line-height:1.45;margin-top:6px}.saved-note{font-size:10.5px;color:var(--muted);margin:8px 0 0;text-align:center}
+.workspace{flex:1;min-width:0;min-height:100vh;overflow:auto;padding:34px 32px 90px;display:flex;justify-content:center;align-items:flex-start}.canvas-wrap{position:relative}.canvas{position:relative;width:600px;min-height:440px;overflow:hidden;background:#fff;box-shadow:0 14px 44px rgba(0,0,0,.16),0 2px 8px rgba(0,0,0,.08);transform-origin:top left;border-radius:0;user-select:none}
+.canvas-bg{position:absolute;inset:0;overflow:hidden;z-index:0;background:#fff}.canvas-bg-solid{position:absolute;inset:0;background:#fff}.canvas-bg-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none;transform-origin:center center;will-change:transform,filter}.canvas-overlay{position:absolute;inset:0;z-index:1;pointer-events:none;background:transparent}
+.block-list{position:relative;z-index:5;padding:44px 42px;min-height:440px;display:flex;flex-direction:column;gap:0}
+.content-block{position:relative;width:100%;user-select:text;margin:5px 0}.block-inner{position:relative}
+.paragraph-block .editable{min-height:28px;outline:none;white-space:pre-wrap;word-break:break-word;font-size:18px;line-height:1.6;color:#222;padding:2px 0}
+.editable:empty::before{content:attr(data-placeholder);color:currentColor;opacity:.35;pointer-events:none}.canvas.capturing .editable:empty::before{content:''}
+.block-tools{position:absolute;right:-30px;top:-5px;display:flex;flex-direction:column;gap:4px;z-index:20;opacity:0;pointer-events:none;transition:.12s}.content-block:hover .block-tools,.content-block:focus-within .block-tools,.content-block.selected .block-tools{opacity:1;pointer-events:auto}.block-tool{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;font-size:11px;color:#59616b;padding:0}.block-tool:hover{color:var(--accent2);border-color:var(--accent)}.block-tool.delete:hover{color:var(--danger);border-color:var(--danger)}.drag-handle{cursor:grab}
+.insert-slot{height:22px;display:flex;align-items:center;justify-content:center;position:relative;user-select:none}.insert-slot::before{content:'';position:absolute;left:10%;right:10%;top:50%;height:1px;background:transparent;transition:.12s}.insert-slot:hover::before,.insert-slot.open::before{background:rgba(116,165,194,.30)}.slot-plus{width:25px;height:25px;border:1px dashed rgba(81,127,157,.5);border-radius:50%;background:rgba(255,255,255,.75);color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;opacity:.25;z-index:1}.insert-slot:hover .slot-plus,.insert-slot.open .slot-plus{opacity:1}.slot-menu{display:none;position:absolute;z-index:30;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.12);border-radius:12px;padding:5px;gap:4px}.insert-slot.open .slot-menu{display:flex}.slot-menu button{width:42px;height:38px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:17px}.slot-menu button:hover{background:var(--panel2);color:var(--accent2)}
+.bubble-row{display:flex;align-items:flex-end;gap:9px;width:100%}.bubble-block[data-side="right"] .bubble-row{flex-direction:row-reverse}.bubble-block[data-side="right"] .bubble-row{justify-content:flex-start}.bubble-block[data-side="left"] .bubble-row{justify-content:flex-start}.bubble-shell{max-width:78%;border-radius:20px;padding:11px 15px;min-width:44px;position:relative}.bubble-block[data-side="left"] .bubble-shell{border-bottom-left-radius:6px}.bubble-block[data-side="right"] .bubble-shell{border-bottom-right-radius:6px}.bubble-shell .editable{outline:none;white-space:pre-wrap;word-break:break-word;font-size:15px;line-height:1.5}.bubble-block[data-side="right"] .bubble-shell .editable{text-align:right}.profile-frame{width:46px;height:46px;flex:0 0 46px;border-radius:50%;overflow:hidden;background:rgba(235,238,241,.9);position:relative}.profile-frame.hidden{display:none}.profile-frame img{position:absolute;left:0;top:0;width:100%;height:100%;object-fit:cover;max-width:none;pointer-events:none;transform-origin:center center;image-rendering:auto}.profile-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:#9aa3ad}.profile-frame.has-img .profile-placeholder{display:none}
+.bubble-block .style-chip{position:absolute;left:50%;top:-27px;transform:translateX(-50%);opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:3px 8px;color:var(--accent2);box-shadow:0 3px 10px rgba(0,0,0,.08)}.bubble-block:hover .style-chip,.bubble-block.selected .style-chip{opacity:1;pointer-events:auto}
+.selection-toolbar{position:fixed;left:50%;bottom:max(16px,env(safe-area-inset-bottom));transform:translateX(-50%);z-index:9000;display:none;align-items:center;gap:5px;background:rgba(27,31,36,.96);border-radius:14px;padding:7px;box-shadow:0 10px 30px rgba(0,0,0,.24)}.selection-toolbar.show{display:flex}.selection-toolbar button{width:34px;height:34px;border:0;border-radius:8px;background:transparent;color:#fff;font-weight:750}.selection-toolbar button.active{background:#fff;color:#20252a}.selection-toolbar input[type=color]{width:31px;height:31px;border-color:rgba(255,255,255,.28);background:transparent}.selection-toolbar .sep{width:1px;height:22px;background:rgba(255,255,255,.18)}
+.mobile-settings-btn{display:none;position:fixed;right:14px;top:14px;z-index:8500;border:1px solid var(--line);background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.sheet-backdrop{position:fixed;inset:0;background:rgba(16,20,24,.38);z-index:9100;display:none}.sheet-backdrop.show{display:block}.inspector{position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);z-index:9200;width:min(520px,100%);max-height:82vh;overflow:auto;background:#fff;border-radius:18px 18px 0 0;box-shadow:0 -18px 50px rgba(0,0,0,.24);padding:16px 16px calc(22px + env(safe-area-inset-bottom));transition:transform .18s}.inspector.show{transform:translate(-50%,0)}.inspector-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.inspector-head h3{font-size:15px;margin:0}.inspector .close{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.inspector .disabled{opacity:.48;pointer-events:none}
+.capture-toast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:12000;background:#20252a;color:#fff;border-radius:999px;padding:8px 13px;font-size:12px;display:none}.capture-toast.show{display:block}
+.canvas.capturing{box-shadow:none}.canvas.capturing .insert-slot,.canvas.capturing .block-tools,.canvas.capturing .style-chip{display:none!important}
+.actions{border-top:1px solid var(--line);padding-top:14px;margin-top:16px}
+@media (hover:none){.block-tools{opacity:1;pointer-events:auto;right:-27px}.slot-plus{opacity:.65}.bubble-block .style-chip{opacity:.8;pointer-events:auto}}
+@media (max-width:860px){
+  body{overflow:auto}.app{display:block}.workspace{min-height:100vh;padding:72px 14px 90px;overflow:visible}.mobile-settings-btn{display:block}.sidebar{position:fixed;left:0;bottom:0;top:auto;width:100%;height:auto;max-height:78vh;transform:translateY(105%);transition:transform .2s;z-index:9050;border-right:0;border-top:1px solid var(--line);border-radius:18px 18px 0 0;padding:14px 14px calc(24px + env(safe-area-inset-bottom));box-shadow:0 -18px 50px rgba(0,0,0,.22)}.sidebar.mobile-open{transform:translateY(0)}.mobile-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:-14px;background:#fff;padding:4px 0 10px;z-index:2}.mobile-sheet-head strong{font-size:14px}.mobile-sheet-head button{border:0;background:var(--panel2);width:30px;height:30px;border-radius:50%}.brand{display:none}.canvas{box-shadow:0 8px 28px rgba(0,0,0,.15)}.selection-toolbar{bottom:max(10px,env(safe-area-inset-bottom))}.block-tools{right:-28px}.block-list{padding-left:38px!important;padding-right:38px!important}
+}
+</style>
+<style id="customFontStyles"></style>
+</head>
+<body>
+<button class="mobile-settings-btn" id="mobileSettingsBtn">⚙ 설정</button>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="mobile-sheet-head"><strong>설정</strong><button id="closeSidebar">✕</button></div>
+    <div class="brand"><div class="mark">✂</div><div><h1>지문 발췌기 <small>v2 · block editor</small></h1></div></div>
+
+    <div class="group">
+      <p class="glabel">본문 서식</p>
+      <div class="field"><label>기본 서체</label><select id="fontFamily"><option value="pretendard">프리텐다드 (고딕)</option><option value="myeongjo">나눔명조 (명조)</option></select></div>
+      <div class="field"><button class="btn wide file-btn">＋ 내 폰트 추가<input type="file" id="fontUpload" accept=".ttf,.otf,.woff,.woff2,font/*"></button><p class="hint">추가한 폰트는 이 브라우저에 저장됩니다.</p></div>
+      <div class="field"><label>기본 글자 크기</label><div class="row"><input type="range" id="fontSize" min="12" max="32" value="18"><span class="val" id="fontSizeVal">18px</span></div></div>
+      <div class="field"><label>행간</label><div class="row"><input type="range" id="lineHeight" min="1.1" max="2.4" step="0.05" value="1.6"><span class="val" id="lineHeightVal">1.60</span></div></div>
+      <div class="field"><label>기본 글자색</label><input type="color" id="baseTextColor" value="#222222" style="width:100%"></div>
+    </div>
+
+    <div class="collapse open" id="sec-bg">
+      <button class="head" data-toggle>배경 편집 <span class="chev">▾</span></button>
+      <div class="body">
+        <div class="field"><label>프리셋</label><div class="row"><button class="btn sm" id="presetWhite" style="flex:1">흰색</button><button class="btn sm" id="presetDark" style="flex:1">다크</button></div></div>
+        <div class="field"><label>배경 방식</label><div class="seg" id="bgModeSeg"><button class="btn tiny active" data-bgmode="solid">단색</button><button class="btn tiny" data-bgmode="gradient">그라데이션</button><button class="btn tiny" data-bgmode="image">이미지 배경</button></div></div>
+        <div id="bgSolidPanel"><div class="field"><label>단색</label><input type="color" id="bgColor" value="#ffffff" style="width:100%"></div></div>
+        <div id="bgGradientPanel" style="display:none"><div class="field"><label>시작 → 끝</label><div class="row"><input type="color" id="gradStart" value="#a8c5d6"><input type="color" id="gradEnd" value="#dbe6ec"><select id="gradDir" style="flex:1"><option value="180">위→아래</option><option value="90">좌→우</option><option value="135">대각선</option></select></div></div></div>
+        <div id="bgImagePanel" style="display:none">
+          <div class="field"><button class="btn wide file-btn">배경 이미지 선택<input type="file" id="bgImageUpload" accept="image/*"></button></div>
+          <div class="field"><label>좌우 이동</label><div class="row"><input type="range" id="bgX" min="-250" max="250" value="0"><span class="val" id="bgXVal">0</span></div></div>
+          <div class="field"><label>상하 이동</label><div class="row"><input type="range" id="bgY" min="-250" max="250" value="0"><span class="val" id="bgYVal">0</span></div></div>
+          <div class="field"><label>확대</label><div class="row"><input type="range" id="bgZoom" min="100" max="260" value="100"><span class="val" id="bgZoomVal">100%</span></div></div>
+          <div class="field"><label>블러</label><div class="row"><input type="range" id="bgBlur" min="0" max="28" step="0.5" value="0"><span class="val" id="bgBlurVal">0</span></div></div>
+        </div>
+        <div class="field"><label>명도</label><div class="row"><input type="range" id="brightness" min="-80" max="80" value="0"><span class="val" id="brightnessVal">0</span></div></div>
+        <div class="field"><label>좌우 여백</label><div class="row"><input type="range" id="padX" min="20" max="90" value="42"><span class="val" id="padXVal">42px</span></div></div>
+        <div class="field"><label>상하 여백</label><div class="row"><input type="range" id="padY" min="20" max="90" value="44"><span class="val" id="padYVal">44px</span></div></div>
+        <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="roundCorners"> 캔버스 모서리 둥글게</label></div>
+      </div>
+    </div>
+
+    <div class="collapse open" id="sec-bubble">
+      <button class="head" data-toggle>말풍선 <span class="chev">▾</span></button>
+      <div class="body">
+        <div class="seg" id="bubbleSideSeg"><button class="btn tiny active" data-bside="left">왼쪽</button><button class="btn tiny" data-bside="right">오른쪽</button></div>
+        <div class="subcard">
+          <h4 id="bubbleSideTitle">왼쪽 말풍선 기본값</h4>
+          <div class="field"><label>말풍선 색 · 투명도</label><div class="row"><input type="color" id="bubbleBg"><input type="range" id="bubbleOpacity" min="10" max="100"><span class="val" id="bubbleOpacityVal"></span></div></div>
+          <div class="field"><label>글자색</label><input type="color" id="bubbleText" style="width:100%"></div>
+          <div class="field"><label>그림자</label><div class="row"><input type="range" id="bubbleShadow" min="0" max="100"><span class="val" id="bubbleShadowVal"></span></div></div>
+          <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="profileShow"> 프로필 이미지 표시</label></div>
+          <div class="field"><button class="btn wide sm file-btn">프로필 이미지 선택<input type="file" id="profileUpload" accept="image/*"></button></div>
+          <div class="field"><label>프로필 확대</label><div class="row"><input type="range" id="profileZoom" min="100" max="300" value="100"><span class="val" id="profileZoomVal"></span></div></div>
+          <div class="field"><label>프로필 좌우 이동</label><div class="row"><input type="range" id="profileX" min="-40" max="40" value="0"><span class="val" id="profileXVal"></span></div></div>
+          <div class="field"><label>프로필 상하 이동</label><div class="row"><input type="range" id="profileY" min="-40" max="40" value="0"><span class="val" id="profileYVal"></span></div></div>
+        </div>
+        <p class="hint">여기 설정은 새 말풍선과 ‘기본값 따름’ 상태의 말풍선에 적용됩니다. 특정 말풍선만 바꾸려면 캔버스에서 그 말풍선을 누르세요.</p>
+      </div>
+    </div>
+
+    <div class="group actions">
+      <button class="btn accent wide" id="btnSave">이미지로 저장하기 (PNG)</button>
+      <button class="btn danger wide" id="btnReset" style="margin-top:7px">전체 초기화</button>
+      <p class="saved-note">디자인 설정은 이 브라우저에 자동 저장됩니다.</p>
+    </div>
+  </aside>
+
+  <main class="workspace" id="workspace">
+    <div class="canvas-wrap" id="canvasWrap">
+      <div class="canvas" id="canvas">
+        <div class="canvas-bg" id="canvasBg">
+          <div class="canvas-bg-solid" id="bgSolid"></div>
+          <img class="canvas-bg-img" id="bgImageLayer" alt="">
+        </div>
+        <div class="canvas-overlay" id="canvasOverlay"></div>
+        <div class="block-list" id="blockList"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="selection-toolbar" id="selectionToolbar" aria-hidden="true">
+  <button id="fmtBold" title="굵게"><b>B</b></button>
+  <button id="fmtItalic" title="기울임"><i>I</i></button>
+  <button id="fmtStrike" title="취소선"><s>S</s></button>
+  <span class="sep"></span>
+  <input type="color" id="fmtHiliteColor" value="#ffe27a" title="형광펜 색">
+  <button id="fmtHilite" title="형광펜">▰</button>
+</div>
+
+<div class="sheet-backdrop" id="sheetBackdrop"></div>
+<div class="inspector" id="bubbleInspector">
+  <div class="inspector-head"><h3>말풍선 개별 설정</h3><button class="close" id="closeInspector">✕</button></div>
+  <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="insUseDefault" checked> 이 방향의 기본 설정 따름</label></div>
+  <div id="insFields">
+    <div class="field"><label>말풍선 색 · 투명도</label><div class="row"><input type="color" id="insBg"><input type="range" id="insOpacity" min="10" max="100"><span class="val" id="insOpacityVal"></span></div></div>
+    <div class="field"><label>글자색</label><input type="color" id="insText" style="width:100%"></div>
+    <div class="field"><label>그림자</label><div class="row"><input type="range" id="insShadow" min="0" max="100"><span class="val" id="insShadowVal"></span></div></div>
+    <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="insProfileShow"> 프로필 이미지 표시</label></div>
+    <div class="field"><button class="btn wide sm file-btn">개별 프로필 이미지 선택<input type="file" id="insProfileUpload" accept="image/*"></button></div>
+    <div class="field"><label>프로필 확대</label><div class="row"><input type="range" id="insProfileZoom" min="100" max="300"><span class="val" id="insProfileZoomVal"></span></div></div>
+    <div class="field"><label>프로필 좌우 이동</label><div class="row"><input type="range" id="insProfileX" min="-40" max="40"><span class="val" id="insProfileXVal"></span></div></div>
+    <div class="field"><label>프로필 상하 이동</label><div class="row"><input type="range" id="insProfileY" min="-40" max="40"><span class="val" id="insProfileYVal"></span></div></div>
+  </div>
+</div>
+<div class="capture-toast" id="captureToast">이미지 저장 중…</div>
+
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const canvas = $('#canvas'), blockList = $('#blockList'), workspace = $('#workspace'), canvasWrap = $('#canvasWrap');
+const bgSolid = $('#bgSolid'), bgImageLayer = $('#bgImageLayer'), overlay = $('#canvasOverlay');
+const STORAGE_KEY = 'jimun-extractor-v2:settings';
+const DB_NAME = 'jimun-extractor-v2-assets', DB_STORE = 'assets';
+let scale = 1, blockSeq = 1, activeBubbleId = null, savedRange = null, savedEditable = null;
+let bubbleEditSide = 'left';
+const bubbleOverrides = new Map();
+const customFonts = [];
+
+const DEFAULTS = {
+  fontFamily:'pretendard', fontSize:18, lineHeight:1.6, textColor:'#222222',
+  bg:{mode:'solid',color:'#ffffff',gradStart:'#a8c5d6',gradEnd:'#dbe6ec',gradDir:'180',x:0,y:0,zoom:100,blur:0,brightness:0,padX:42,padY:44,round:false},
+  bubble:{
+    left:{bg:'#2b2d33',opacity:92,text:'#ffffff',shadow:48,showProfile:true,profileZoom:100,profileX:0,profileY:0},
+    right:{bg:'#7d9cb5',opacity:94,text:'#ffffff',shadow:48,showProfile:true,profileZoom:100,profileX:0,profileY:0}
+  }
+};
+let state = deepClone(DEFAULTS);
+let assets = {bgImage:null, leftProfile:null, rightProfile:null};
+
+function deepClone(v){ return JSON.parse(JSON.stringify(v)); }
+function clamp(n,a,b){ return Math.max(a,Math.min(b,n)); }
+function hexToRgba(hex,a){ hex=String(hex||'#000').replace('#',''); if(hex.length===3) hex=hex.split('').map(c=>c+c).join(''); const n=parseInt(hex,16)||0; return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function readAsDataURL(file){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file); }); }
+
+function openDB(){ return new Promise((res,rej)=>{ const q=indexedDB.open(DB_NAME,1); q.onupgradeneeded=()=>{ if(!q.result.objectStoreNames.contains(DB_STORE)) q.result.createObjectStore(DB_STORE); }; q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+async function idbGet(key){ try{ const db=await openDB(); return await new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readonly'); const rq=tx.objectStore(DB_STORE).get(key); rq.onsuccess=()=>res(rq.result??null); rq.onerror=()=>rej(rq.error); }); }catch(e){ return null; } }
+async function idbSet(key,val){ try{ const db=await openDB(); await new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }catch(e){} }
+async function idbClear(){ try{ const db=await openDB(); await new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }catch(e){} }
+
+function loadSettings(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ const saved=JSON.parse(raw); state={...deepClone(DEFAULTS),...saved,bg:{...deepClone(DEFAULTS.bg),...(saved.bg||{})},bubble:{left:{...deepClone(DEFAULTS.bubble.left),...((saved.bubble||{}).left||{})},right:{...deepClone(DEFAULTS.bubble.right),...((saved.bubble||{}).right||{})}}}; } }catch(e){} }
+function saveSettings(){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }catch(e){} }
+
+function fontCSSValue(key){ if(key==='myeongjo') return "'Nanum Myeongjo',serif"; if(key==='pretendard') return "'Pretendard','Pretendard Variable',sans-serif"; const f=customFonts.find(x=>x.id===key); return f ? `'${f.family}',sans-serif` : "'Pretendard','Pretendard Variable',sans-serif"; }
+function installCustomFonts(list){
+  customFonts.length=0; const style=$('#customFontStyles'); style.textContent='';
+  (list||[]).forEach((f,i)=>{ if(!f||!f.data) return; const id=f.id||('custom-'+i); const family='UserFont_'+id.replace(/[^a-zA-Z0-9_-]/g,'_'); customFonts.push({id,name:f.name||'사용자 폰트',family,data:f.data}); style.textContent += `@font-face{font-family:"${family}";src:url("${f.data}");font-display:swap;}\n`; });
+  refreshFontOptions();
+}
+function refreshFontOptions(){ const sel=$('#fontFamily'); const base=[['pretendard','프리텐다드 (고딕)'],['myeongjo','나눔명조 (명조)']]; sel.innerHTML=''; base.concat(customFonts.map(f=>[f.id,'내 폰트 · '+f.name])).forEach(([v,t])=>{ const o=document.createElement('option'); o.value=v;o.textContent=t;sel.appendChild(o); }); if([...sel.options].some(o=>o.value===state.fontFamily)) sel.value=state.fontFamily; else { state.fontFamily='pretendard'; sel.value='pretendard'; }
+}
+
+function rgbaShadow(v){ const n=clamp(+v||0,0,100); if(n===0) return 'none'; const y=3+n*.055, blur=10+n*.20, alpha=.06+n*.0019; return `0 ${y.toFixed(1)}px ${blur.toFixed(1)}px rgba(0,0,0,${alpha.toFixed(3)})`; }
+function effectiveBubble(block){ const side=block.dataset.side; const base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(block.dataset.id); if(!ov || ov.useDefault!==false) return base; return {...base,...ov}; }
+function applyBubbleStyle(block){
+  if(!block || !block.classList.contains('bubble-block')) return;
+  const cfg=effectiveBubble(block), shell=block.querySelector('.bubble-shell'), text=block.querySelector('.editable'), frame=block.querySelector('.profile-frame'), img=frame.querySelector('img');
+  shell.style.background=hexToRgba(cfg.bg,cfg.opacity/100); shell.style.boxShadow=rgbaShadow(cfg.shadow); text.style.color=cfg.text; text.style.fontFamily=fontCSSValue(state.fontFamily);
+  frame.classList.toggle('hidden',!cfg.showProfile); const src=cfg.profile||null; if(src){ img.src=src; frame.classList.add('has-img'); } else { img.removeAttribute('src'); frame.classList.remove('has-img'); }
+  img.style.transform=`translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
+}
+function applyGlobalText(){
+  $$('.paragraph-block .editable').forEach(el=>{ el.style.fontFamily=fontCSSValue(state.fontFamily); el.style.fontSize=state.fontSize+'px'; el.style.lineHeight=state.lineHeight; el.style.color=state.textColor; });
+  $$('.bubble-block').forEach(applyBubbleStyle);
+}
+function renderBackground(){
+  const b=state.bg; bgSolid.style.display='block'; bgImageLayer.style.display='none'; bgSolid.style.background='#fff';
+  if(b.mode==='solid') bgSolid.style.background=b.color;
+  else if(b.mode==='gradient') bgSolid.style.background=`linear-gradient(${b.gradDir}deg,${b.gradStart},${b.gradEnd})`;
+  else if(b.mode==='image' && assets.bgImage){
+    bgSolid.style.background='#fff'; bgImageLayer.src=assets.bgImage; bgImageLayer.style.display='block';
+    const edge = 1 + Math.min(0.09,(+b.blur||0)*0.0035); const z=(+b.zoom||100)/100*edge;
+    bgImageLayer.style.transform=`translate(${b.x}px,${b.y}px) scale(${z})`;
+    bgImageLayer.style.filter=`blur(${b.blur}px)`;
+  }
+  const v=+b.brightness||0; overlay.style.background=v<0?`rgba(0,0,0,${Math.min(.8,-v/100)})`:v>0?`rgba(255,255,255,${Math.min(.8,v/100)})`:'transparent';
+  blockList.style.padding=`${b.padY}px ${b.padX}px`; canvas.style.borderRadius=b.round?'14px':'0';
+  relayout();
+}
+
+function createBlock(type,side){
+  const id='b'+(blockSeq++), block=document.createElement('div'); block.className='content-block'; block.dataset.id=id;
+  const tools=`<div class="block-tools" contenteditable="false"><button class="block-tool drag-handle" draggable="true" title="드래그 이동">⋮⋮</button><button class="block-tool move-up" title="위로">↑</button><button class="block-tool move-down" title="아래로">↓</button><button class="block-tool delete" title="삭제">✕</button></div>`;
+  if(type==='paragraph'){
+    block.classList.add('paragraph-block'); block.dataset.type='paragraph';
+    block.innerHTML=`${tools}<div class="block-inner"><div class="editable" contenteditable="true" data-placeholder="문단을 입력하거나 붙여넣으세요"></div></div>`;
+  }else{
+    block.classList.add('bubble-block'); block.dataset.type='bubble'; block.dataset.side=side;
+    block.innerHTML=`${tools}<button class="style-chip" type="button" contenteditable="false">개별 스타일</button><div class="block-inner"><div class="bubble-row"><div class="profile-frame"><img alt=""><span class="profile-placeholder">◉</span></div><div class="bubble-shell"><div class="editable" contenteditable="true" data-placeholder="말풍선을 입력하세요"></div></div></div></div>`;
+    bubbleOverrides.set(id,{useDefault:true});
+  }
+  attachBlockEvents(block); if(type==='paragraph') applyGlobalText(); else applyBubbleStyle(block); return block;
+}
+function attachBlockEvents(block){
+  const stop=e=>{e.preventDefault();e.stopPropagation();};
+  block.querySelectorAll('.block-tool,.style-chip').forEach(b=>b.addEventListener('pointerdown',stop));
+  block.querySelector('.move-up').addEventListener('click',e=>{e.stopPropagation();moveBlock(block,-1)});
+  block.querySelector('.move-down').addEventListener('click',e=>{e.stopPropagation();moveBlock(block,1)});
+  block.querySelector('.delete').addEventListener('click',e=>{e.stopPropagation(); if($$('.content-block').length===1){ const ed=block.querySelector('.editable'); ed.innerHTML=''; return; } bubbleOverrides.delete(block.dataset.id); block.remove(); refreshSlots(); relayout();});
+  if(block.classList.contains('bubble-block')){
+    block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openBubbleInspector(block)});
+    block.querySelector('.bubble-shell').addEventListener('click',e=>{ if(e.target.closest('.editable')) return; openBubbleInspector(block); });
+    block.querySelector('.profile-frame').addEventListener('click',e=>{ e.stopPropagation(); openBubbleInspector(block); });
+  }
+  block.addEventListener('pointerdown',()=>selectBlock(block));
+  const handle=block.querySelector('.drag-handle');
+  handle.addEventListener('dragstart',e=>{ block.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',block.dataset.id); });
+  handle.addEventListener('dragend',()=>block.classList.remove('dragging'));
+}
+function selectBlock(block){ $$('.content-block.selected').forEach(b=>b.classList.remove('selected')); block.classList.add('selected'); }
+function contentBlocks(){ return $$('.content-block'); }
+function moveBlock(block,dir){ const arr=contentBlocks(), i=arr.indexOf(block), j=i+dir; if(j<0||j>=arr.length)return; if(dir<0) blockList.insertBefore(block,arr[j]); else blockList.insertBefore(arr[j],block); refreshSlots(); selectBlock(block); relayout(); }
+function refreshSlots(){
+  $$('.insert-slot').forEach(x=>x.remove()); const blocks=contentBlocks();
+  const mk=()=>{ const s=document.createElement('div');s.className='insert-slot';s.innerHTML='<button class="slot-plus" type="button" title="요소 추가">＋</button><div class="slot-menu"><button type="button" data-add="paragraph" title="문단">¶</button><button type="button" data-add="left" title="왼쪽 말풍선">◀</button><button type="button" data-add="right" title="오른쪽 말풍선">▶</button></div>';return s; };
+  if(!blocks.length){ blockList.appendChild(mk());return; }
+  blockList.insertBefore(mk(),blocks[0]); blocks.forEach(b=>{ b.after(mk()); });
+}
+blockList.addEventListener('click',e=>{
+  const slot=e.target.closest('.insert-slot'); if(!slot) return;
+  const add=e.target.closest('[data-add]');
+  if(add){ e.preventDefault();e.stopPropagation(); const kind=add.dataset.add; const b=kind==='paragraph'?createBlock('paragraph'):createBlock('bubble',kind); blockList.insertBefore(b,slot); refreshSlots(); const ed=b.querySelector('.editable'); setTimeout(()=>ed.focus(),0); relayout(); return; }
+  if(e.target.closest('.slot-plus')){ e.preventDefault(); e.stopPropagation(); $$('.insert-slot.open').forEach(x=>{if(x!==slot)x.classList.remove('open')}); slot.classList.toggle('open'); }
+});
+blockList.addEventListener('dragover',e=>{ const dragging=$('.content-block.dragging'); if(!dragging)return; e.preventDefault(); const y=e.clientY; const candidates=contentBlocks().filter(b=>b!==dragging); let target=null; for(const b of candidates){const r=b.getBoundingClientRect(); if(y<r.top+r.height/2){target=b;break;}} if(target) blockList.insertBefore(dragging,target); else blockList.appendChild(dragging); refreshSlots(); });
+
+function sanitizeHTML(html){
+  const box=document.createElement('div'); box.innerHTML=html; box.querySelectorAll('script,style,link,meta,iframe,object,embed,svg,img,video,audio,table,input,button').forEach(el=>el.remove());
+  box.querySelectorAll('*').forEach(el=>{ const tag=el.tagName; const keep=['B','STRONG','I','EM','S','STRIKE','DEL','SPAN','BR','P','DIV','U']; let c='',bg=''; try{c=el.style.color||'';bg=el.style.backgroundColor||'';}catch(e){}; [...el.attributes].forEach(a=>el.removeAttribute(a.name)); if(c)el.style.color=c;if(bg)el.style.backgroundColor=bg; if(!keep.includes(tag)){ const p=el.parentNode; while(el.firstChild)p.insertBefore(el.firstChild,el);p.removeChild(el);} }); return box.innerHTML;
+}
+canvas.addEventListener('paste',e=>{ const ed=e.target.closest('.editable'); if(!ed)return; const cb=e.clipboardData; if(!cb)return; e.preventDefault(); const h=cb.getData('text/html'); if(h) document.execCommand('insertHTML',false,sanitizeHTML(h)); else document.execCommand('insertText',false,cb.getData('text/plain')||''); });
+
+function relayout(){ const mobile=window.innerWidth<=860; const avail=mobile?window.innerWidth-28:workspace.clientWidth-64; scale=Math.min(1,Math.max(.35,avail/600)); canvas.style.transform=`scale(${scale})`; canvasWrap.style.width=(600*scale)+'px'; canvasWrap.style.height=(canvas.offsetHeight*scale)+'px'; }
+window.addEventListener('resize',relayout); if(window.ResizeObserver) new ResizeObserver(relayout).observe(canvas);
+
+function bindRange(id,key,obj=state,fmt=v=>v){ const el=$('#'+id), out=$('#'+id+'Val'); const sync=()=>{ obj[key]=+el.value; if(out) out.textContent=fmt(el.value); saveSettings(); renderBackground(); applyGlobalText(); }; el.addEventListener('input',sync); }
+function renderControls(){
+  refreshFontOptions(); $('#fontFamily').value=state.fontFamily; $('#fontSize').value=state.fontSize; $('#fontSizeVal').textContent=state.fontSize+'px'; $('#lineHeight').value=state.lineHeight; $('#lineHeightVal').textContent=Number(state.lineHeight).toFixed(2); $('#baseTextColor').value=state.textColor;
+  const b=state.bg; $('#bgColor').value=b.color; $('#gradStart').value=b.gradStart; $('#gradEnd').value=b.gradEnd; $('#gradDir').value=b.gradDir; $('#bgX').value=b.x;$('#bgXVal').textContent=b.x;$('#bgY').value=b.y;$('#bgYVal').textContent=b.y;$('#bgZoom').value=b.zoom;$('#bgZoomVal').textContent=b.zoom+'%';$('#bgBlur').value=b.blur;$('#bgBlurVal').textContent=b.blur;$('#brightness').value=b.brightness;$('#brightnessVal').textContent=b.brightness;$('#padX').value=b.padX;$('#padXVal').textContent=b.padX+'px';$('#padY').value=b.padY;$('#padYVal').textContent=b.padY+'px';$('#roundCorners').checked=!!b.round;
+  setBgModeUI(b.mode); loadBubbleSideControls(bubbleEditSide);
+}
+function setBgModeUI(mode){ state.bg.mode=mode; $$('#bgModeSeg [data-bgmode]').forEach(b=>b.classList.toggle('active',b.dataset.bgmode===mode)); $('#bgSolidPanel').style.display=mode==='solid'?'':'none';$('#bgGradientPanel').style.display=mode==='gradient'?'':'none';$('#bgImagePanel').style.display=mode==='image'?'':'none'; renderBackground(); saveSettings(); }
+
+$$('.collapse .head[data-toggle]').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
+$('#fontFamily').addEventListener('change',e=>{state.fontFamily=e.target.value;saveSettings();applyGlobalText()});
+$('#fontSize').addEventListener('input',e=>{state.fontSize=+e.target.value;$('#fontSizeVal').textContent=e.target.value+'px';saveSettings();applyGlobalText();relayout()});
+$('#lineHeight').addEventListener('input',e=>{state.lineHeight=+e.target.value;$('#lineHeightVal').textContent=Number(e.target.value).toFixed(2);saveSettings();applyGlobalText();relayout()});
+$('#baseTextColor').addEventListener('input',e=>{state.textColor=e.target.value;saveSettings();applyGlobalText()});
+$('#fontUpload').addEventListener('change',async e=>{ const f=e.target.files&&e.target.files[0]; if(!f)return; const data=await readAsDataURL(f); const id='custom-'+Date.now(); const stored=await idbGet('customFonts')||[]; stored.push({id,name:f.name,data}); await idbSet('customFonts',stored); installCustomFonts(stored); state.fontFamily=id; $('#fontFamily').value=id; saveSettings(); applyGlobalText(); e.target.value=''; });
+
+$('#bgModeSeg').addEventListener('click',e=>{const b=e.target.closest('[data-bgmode]');if(b)setBgModeUI(b.dataset.bgmode)});
+$('#bgColor').addEventListener('input',e=>{state.bg.color=e.target.value;saveSettings();renderBackground()});
+$('#gradStart').addEventListener('input',e=>{state.bg.gradStart=e.target.value;saveSettings();renderBackground()});
+$('#gradEnd').addEventListener('input',e=>{state.bg.gradEnd=e.target.value;saveSettings();renderBackground()});
+$('#gradDir').addEventListener('change',e=>{state.bg.gradDir=e.target.value;saveSettings();renderBackground()});
+[['bgX','x',v=>v],['bgY','y',v=>v],['bgZoom','zoom',v=>v+'%'],['bgBlur','blur',v=>v],['brightness','brightness',v=>v],['padX','padX',v=>v+'px'],['padY','padY',v=>v+'px']].forEach(([id,key,fmt])=>{const el=$('#'+id),out=$('#'+id+'Val');el.addEventListener('input',()=>{state.bg[key]=+el.value;out.textContent=fmt(el.value);saveSettings();renderBackground()})});
+$('#roundCorners').addEventListener('change',e=>{state.bg.round=e.target.checked;saveSettings();renderBackground()});
+$('#bgImageUpload').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;assets.bgImage=await readAsDataURL(f);await idbSet('bgImage',assets.bgImage);state.bg.mode='image';saveSettings();setBgModeUI('image');e.target.value=''});
+$('#presetWhite').addEventListener('click',()=>{state.bg.mode='solid';state.bg.color='#ffffff';state.textColor='#222222';saveSettings();renderControls();applyGlobalText()});
+$('#presetDark').addEventListener('click',()=>{state.bg.mode='solid';state.bg.color='#1e1f26';state.textColor='#ffffff';saveSettings();renderControls();applyGlobalText()});
+
+function loadBubbleSideControls(side){ bubbleEditSide=side; const c=state.bubble[side]; $('#bubbleSideTitle').textContent=(side==='left'?'왼쪽':'오른쪽')+' 말풍선 기본값'; $$('#bubbleSideSeg [data-bside]').forEach(b=>b.classList.toggle('active',b.dataset.bside===side)); $('#bubbleBg').value=c.bg;$('#bubbleOpacity').value=c.opacity;$('#bubbleOpacityVal').textContent=c.opacity+'%';$('#bubbleText').value=c.text;$('#bubbleShadow').value=c.shadow;$('#bubbleShadowVal').textContent=c.shadow;$('#profileShow').checked=!!c.showProfile;$('#profileZoom').value=c.profileZoom;$('#profileZoomVal').textContent=c.profileZoom+'%';$('#profileX').value=c.profileX;$('#profileXVal').textContent=c.profileX;$('#profileY').value=c.profileY;$('#profileYVal').textContent=c.profileY; }
+$('#bubbleSideSeg').addEventListener('click',e=>{const b=e.target.closest('[data-bside]');if(b)loadBubbleSideControls(b.dataset.bside)});
+function updateBubbleDefault(key,val){ state.bubble[bubbleEditSide][key]=val; saveSettings(); $$('.bubble-block').forEach(applyBubbleStyle); }
+$('#bubbleBg').addEventListener('input',e=>updateBubbleDefault('bg',e.target.value));$('#bubbleOpacity').addEventListener('input',e=>{updateBubbleDefault('opacity',+e.target.value);$('#bubbleOpacityVal').textContent=e.target.value+'%'});$('#bubbleText').addEventListener('input',e=>updateBubbleDefault('text',e.target.value));$('#bubbleShadow').addEventListener('input',e=>{updateBubbleDefault('shadow',+e.target.value);$('#bubbleShadowVal').textContent=e.target.value});$('#profileShow').addEventListener('change',e=>updateBubbleDefault('showProfile',e.target.checked));$('#profileZoom').addEventListener('input',e=>{updateBubbleDefault('profileZoom',+e.target.value);$('#profileZoomVal').textContent=e.target.value+'%'});$('#profileX').addEventListener('input',e=>{updateBubbleDefault('profileX',+e.target.value);$('#profileXVal').textContent=e.target.value});$('#profileY').addEventListener('input',e=>{updateBubbleDefault('profileY',+e.target.value);$('#profileYVal').textContent=e.target.value});
+$('#profileUpload').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const data=await readAsDataURL(f);assets[bubbleEditSide+'Profile']=data;await idbSet(bubbleEditSide+'Profile',data);$$('.bubble-block').forEach(applyBubbleStyle);e.target.value=''});
+
+const backdrop=$('#sheetBackdrop'), inspector=$('#bubbleInspector'), insFields=$('#insFields');
+function showBackdrop(){backdrop.classList.add('show')}function hideBackdropIfFree(){if(!inspector.classList.contains('show')&&!$('#sidebar').classList.contains('mobile-open'))backdrop.classList.remove('show')}
+function openBubbleInspector(block){ activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
+function closeInspector(){inspector.classList.remove('show');hideBackdropIfFree()}
+$('#closeInspector').addEventListener('click',closeInspector);backdrop.addEventListener('click',()=>{closeInspector();closeSidebar()});
+$('#insUseDefault').addEventListener('change',e=>{const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return; const side=b.dataset.side; if(e.target.checked){bubbleOverrides.set(activeBubbleId,{useDefault:true});}else{const base={...state.bubble[side],profile:assets[side+'Profile']};bubbleOverrides.set(activeBubbleId,{...base,useDefault:false});} openBubbleInspector(b);applyBubbleStyle(b)});
+function updateOverride(key,val){const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return;let o=bubbleOverrides.get(activeBubbleId);if(!o||o.useDefault!==false){const side=b.dataset.side;o={...state.bubble[side],profile:assets[side+'Profile'],useDefault:false};bubbleOverrides.set(activeBubbleId,o);$('#insUseDefault').checked=false;insFields.classList.remove('disabled');}o[key]=val;applyBubbleStyle(b)}
+$('#insBg').addEventListener('input',e=>updateOverride('bg',e.target.value));$('#insOpacity').addEventListener('input',e=>{updateOverride('opacity',+e.target.value);$('#insOpacityVal').textContent=e.target.value+'%'});$('#insText').addEventListener('input',e=>updateOverride('text',e.target.value));$('#insShadow').addEventListener('input',e=>{updateOverride('shadow',+e.target.value);$('#insShadowVal').textContent=e.target.value});$('#insProfileShow').addEventListener('change',e=>updateOverride('showProfile',e.target.checked));$('#insProfileZoom').addEventListener('input',e=>{updateOverride('profileZoom',+e.target.value);$('#insProfileZoomVal').textContent=e.target.value+'%'});$('#insProfileX').addEventListener('input',e=>{updateOverride('profileX',+e.target.value);$('#insProfileXVal').textContent=e.target.value});$('#insProfileY').addEventListener('input',e=>{updateOverride('profileY',+e.target.value);$('#insProfileYVal').textContent=e.target.value});$('#insProfileUpload').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;updateOverride('profile',await readAsDataURL(f));e.target.value=''});
+
+const fmtBar=$('#selectionToolbar');
+function selectionInsideEditable(){const s=window.getSelection();if(!s||!s.rangeCount||s.isCollapsed)return null;const r=s.getRangeAt(0);let n=r.commonAncestorContainer;n=n.nodeType===3?n.parentElement:n;const ed=n&&n.closest?n.closest('.editable'):null;return ed&&canvas.contains(ed)?{s,r,ed}:null;}
+function showSelectionToolbar(){const x=selectionInsideEditable();if(!x){hideSelectionToolbar();return;}savedRange=x.r.cloneRange();savedEditable=x.ed;fmtBar.classList.add('show');fmtBar.setAttribute('aria-hidden','false');updateFmtStates();}
+function hideSelectionToolbar(){fmtBar.classList.remove('show');fmtBar.setAttribute('aria-hidden','true')}
+let selTimer=null;document.addEventListener('selectionchange',()=>{clearTimeout(selTimer);selTimer=setTimeout(showSelectionToolbar,20)});
+function restoreSelection(){if(!savedRange||!savedEditable||!document.body.contains(savedEditable))return false;savedEditable.focus();const s=window.getSelection();s.removeAllRanges();s.addRange(savedRange);return true;}
+function execFmt(cmd,val){if(!restoreSelection())return;try{document.execCommand('styleWithCSS',false,true)}catch(e){} document.execCommand(cmd,false,val??null);const s=window.getSelection();if(s&&s.rangeCount)savedRange=s.getRangeAt(0).cloneRange();updateFmtStates();}
+['fmtBold','fmtItalic','fmtStrike','fmtHilite'].forEach(id=>$('#'+id).addEventListener('pointerdown',e=>e.preventDefault()));
+$('#fmtBold').addEventListener('click',()=>execFmt('bold'));$('#fmtItalic').addEventListener('click',()=>execFmt('italic'));$('#fmtStrike').addEventListener('click',()=>execFmt('strikeThrough'));
+$('#fmtHilite').addEventListener('click',()=>{if(!restoreSelection())return;let active=false;try{const v=String(document.queryCommandValue('hiliteColor')||'').toLowerCase();active=v&&v!=='transparent'&&v!=='rgba(0, 0, 0, 0)';}catch(e){}execFmt('hiliteColor',active?'transparent':$('#fmtHiliteColor').value)});
+function updateFmtStates(){try{$('#fmtBold').classList.toggle('active',document.queryCommandState('bold'));$('#fmtItalic').classList.toggle('active',document.queryCommandState('italic'));$('#fmtStrike').classList.toggle('active',document.queryCommandState('strikeThrough'));const h=String(document.queryCommandValue('hiliteColor')||'').toLowerCase();$('#fmtHilite').classList.toggle('active',!!h&&h!=='transparent'&&h!=='rgba(0, 0, 0, 0)');}catch(e){}}
+
+function openSidebar(){if(window.innerWidth>860)return;$('#sidebar').classList.add('mobile-open');showBackdrop();hideSelectionToolbar()}function closeSidebar(){$('#sidebar').classList.remove('mobile-open');hideBackdropIfFree()}$('#mobileSettingsBtn').addEventListener('click',openSidebar);$('#closeSidebar').addEventListener('click',closeSidebar);
+
+async function saveImage(){
+  hideSelectionToolbar();closeInspector();closeSidebar();const s=window.getSelection();if(s)s.removeAllRanges(); if(document.activeElement?.blur)document.activeElement.blur(); $$('.content-block.selected').forEach(b=>b.classList.remove('selected'));
+  const toast=$('#captureToast'),btn=$('#btnSave'); toast.classList.add('show');btn.disabled=true;canvas.classList.add('capturing'); const prev=canvas.style.transform; canvas.style.transform='none';
+  try{
+    await document.fonts.ready; await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
+    const w=600,h=Math.ceil(canvas.scrollHeight); const maxPixels=20_000_000; let ratio=Math.min(3,Math.sqrt(maxPixels/(w*h))); ratio=Math.max(1.5,ratio);
+    let dataUrl;
+    try{
+      let fontEmbedCSS='';try{fontEmbedCSS=await window.htmlToImage.getFontEmbedCSS(canvas)}catch(e){}
+      dataUrl=await window.htmlToImage.toPng(canvas,{width:w,height:h,pixelRatio:ratio,cacheBust:true,backgroundColor:null,skipAutoScale:true,fontEmbedCSS,style:{transform:'none',margin:'0'}});
+    }catch(err){
+      const hc=await window.html2canvas(canvas,{scale:Math.min(2.5,ratio),backgroundColor:null,useCORS:true,logging:false,width:w,height:h,scrollX:0,scrollY:0}); dataUrl=hc.toDataURL('image/png');
+    }
+    const a=document.createElement('a');a.href=dataUrl;a.download='지문_발췌_v2_'+Date.now()+'.png';document.body.appendChild(a);a.click();a.remove();
+  }catch(err){alert('이미지 저장 중 문제가 발생했어요.\n'+err)}finally{canvas.classList.remove('capturing');canvas.style.transform=prev;btn.disabled=false;toast.classList.remove('show');relayout()}
+}
+$('#btnSave').addEventListener('click',saveImage);
+$('#btnReset').addEventListener('click',async()=>{if(!confirm('문서와 저장된 디자인 설정을 모두 초기화할까요?'))return; localStorage.removeItem(STORAGE_KEY);await idbClear();state=deepClone(DEFAULTS);assets={bgImage:null,leftProfile:null,rightProfile:null};installCustomFonts([]);bubbleOverrides.clear();blockList.innerHTML='';blockList.appendChild(createBlock('paragraph'));refreshSlots();renderControls();renderBackground();applyGlobalText();relayout()});
+
+async function init(){
+  loadSettings(); const storedFonts=await idbGet('customFonts')||[];installCustomFonts(storedFonts);assets.bgImage=await idbGet('bgImage');assets.leftProfile=await idbGet('leftProfile');assets.rightProfile=await idbGet('rightProfile');
+  renderControls();renderBackground();blockList.appendChild(createBlock('paragraph'));refreshSlots();applyGlobalText();relayout();
+  try{await document.fonts.ready}catch(e){} relayout();
+}
+init();
+})();
+</script>
+</body>
+</html>
