@@ -320,7 +320,7 @@ const highlightData = new WeakMap();
 
 const DEFAULTS = {
   fontFamily:'pretendard', fontSize:18, lineHeight:1.6, textColor:'#222222', foreColor:'#74a5c2', hiliteColor:'#ffe27a', foreHist:[], hiliteHist:[],
-  bg:{mode:'solid',color:'#ffffff',gradStart:'#a8c5d6',gradEnd:'#dbe6ec',gradDir:'180',x:0,y:0,zoom:100,blur:0,brightness:0,padX:42,padY:44,round:false},
+  bg:{mode:'solid',color:'#ffffff',gradStart:'#a8c5d6',gradEnd:'#dbe6ec',gradDir:'180',x:0,y:0,zoom:100,blur:0,brightnessByMode:{solid:0,gradient:0,image:0},padX:42,padY:44,round:false},
   bubble:{
     left:{bg:'#2b2d33',opacity:92,text:'#ffffff',fontSize:null,shadow:48,showProfile:true,profileZoom:100,profileX:0,profileY:0},
     right:{bg:'#7d9cb5',opacity:94,text:'#ffffff',fontSize:null,shadow:48,showProfile:true,profileZoom:100,profileX:0,profileY:0}
@@ -339,7 +339,28 @@ async function idbGet(key){ try{ const db=await openDB(); return await new Promi
 async function idbSet(key,val){ try{ const db=await openDB(); await new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).put(val,key); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }catch(e){} }
 async function idbClear(){ try{ const db=await openDB(); await new Promise((res,rej)=>{ const tx=db.transaction(DB_STORE,'readwrite'); tx.objectStore(DB_STORE).clear(); tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }catch(e){} }
 
-function loadSettings(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ const saved=JSON.parse(raw); state={...deepClone(DEFAULTS),...saved,bg:{...deepClone(DEFAULTS.bg),...(saved.bg||{})},bubble:{left:{...deepClone(DEFAULTS.bubble.left),...((saved.bubble||{}).left||{})},right:{...deepClone(DEFAULTS.bubble.right),...((saved.bubble||{}).right||{})}}}; } }catch(e){} }
+function normalizeBrightness(bg){
+  const modes=['solid','gradient','image'];
+  if(!modes.includes(bg.mode))bg.mode='solid';
+  const stored=bg.brightnessByMode;
+  const values={...DEFAULTS.bg.brightnessByMode};
+  for(const mode of modes){
+    const value=stored?.[mode];
+    if(typeof value==='number' && Number.isFinite(value))values[mode]=clamp(value,-80,80);
+  }
+  // 기존 단일 명도는 저장 당시 선택된 모드에만 이전한다.
+  if(stored==null && typeof bg.brightness==='number' && Number.isFinite(bg.brightness)){
+    values[bg.mode]=clamp(bg.brightness,-80,80);
+  }
+  bg.brightnessByMode=values;
+  delete bg.brightness;
+}
+function syncBrightnessControl(){
+  const value=state.bg.brightnessByMode[state.bg.mode];
+  $('#brightness').value=value;
+  $('#brightnessVal').textContent=value;
+}
+function loadSettings(){ try{ const raw=localStorage.getItem(STORAGE_KEY); if(raw){ const saved=JSON.parse(raw); state={...deepClone(DEFAULTS),...saved,bg:{...deepClone(DEFAULTS.bg),...(saved.bg||{}),brightnessByMode:saved.bg?.brightnessByMode},bubble:{left:{...deepClone(DEFAULTS.bubble.left),...((saved.bubble||{}).left||{})},right:{...deepClone(DEFAULTS.bubble.right),...((saved.bubble||{}).right||{})}}}; } }catch(e){} normalizeBrightness(state.bg); }
 function saveSettings(){ try{ localStorage.setItem(STORAGE_KEY,JSON.stringify(state)); }catch(e){} }
 
 function fontCSSValue(key){ if(key==='myeongjo') return "'Nanum Myeongjo',serif"; if(key==='pretendard') return "'Pretendard','Pretendard Variable',sans-serif"; const f=customFonts.find(x=>x.id===key); return f ? `'${f.family}',sans-serif` : "'Pretendard','Pretendard Variable',sans-serif"; }
@@ -522,7 +543,7 @@ function renderBackground(){
     if(bgImageLayer.getAttribute('src')!==assets.bgImage)bgImageLayer.src=assets.bgImage;
     bgImageLayer.style.display='block';
   }
-  const v=+b.brightness||0; overlay.style.background=v<0?`rgba(0,0,0,${Math.min(.8,-v/100)})`:v>0?`rgba(255,255,255,${Math.min(.8,v/100)})`:'transparent';
+  const v=b.brightnessByMode[b.mode]; overlay.style.background=v<0?`rgba(0,0,0,${Math.min(.8,-v/100)})`:v>0?`rgba(255,255,255,${Math.min(.8,v/100)})`:'transparent';
   blockList.style.padding=`${b.padY}px ${b.padX}px`;
   blockList.style.setProperty('--mobile-pad-x',b.padX+'px');
   canvas.style.borderRadius=b.round?'14px':'0';
@@ -807,10 +828,10 @@ window.addEventListener('resize',relayout); if(window.ResizeObserver) new Resize
 function bindRange(id,key,obj=state,fmt=v=>v){ const el=$('#'+id), out=$('#'+id+'Val'); const sync=()=>{ obj[key]=+el.value; if(out) out.textContent=fmt(el.value); saveSettings(); renderBackground(); applyGlobalText(); }; el.addEventListener('input',sync); }
 function renderControls(){
   refreshFontOptions(); $('#fontFamily').value=state.fontFamily; $('#fontSize').value=state.fontSize; $('#fontSizeVal').textContent=state.fontSize+'px'; $('#lineHeight').value=state.lineHeight; $('#lineHeightVal').textContent=Number(state.lineHeight).toFixed(2); $('#foreColor').value=state.foreColor||'#74a5c2'; $('#hiliteColor').value=state.hiliteColor||'#ffe27a'; renderColorHistories();
-  const b=state.bg; $('#bgColor').value=b.color; $('#gradStart').value=b.gradStart; $('#gradEnd').value=b.gradEnd; $('#gradDir').value=b.gradDir; $('#bgX').value=b.x;$('#bgXVal').textContent=b.x;$('#bgY').value=b.y;$('#bgYVal').textContent=b.y;$('#bgZoom').value=b.zoom;$('#bgZoomVal').textContent=b.zoom+'%';$('#bgBlur').value=b.blur;$('#bgBlurVal').textContent=b.blur;$('#brightness').value=b.brightness;$('#brightnessVal').textContent=b.brightness;$('#padX').value=b.padX;$('#padXVal').textContent=b.padX+'px';$('#padY').value=b.padY;$('#padYVal').textContent=b.padY+'px';$('#roundCorners').checked=!!b.round;
+  const b=state.bg; $('#bgColor').value=b.color; $('#gradStart').value=b.gradStart; $('#gradEnd').value=b.gradEnd; $('#gradDir').value=b.gradDir; $('#bgX').value=b.x;$('#bgXVal').textContent=b.x;$('#bgY').value=b.y;$('#bgYVal').textContent=b.y;$('#bgZoom').value=b.zoom;$('#bgZoomVal').textContent=b.zoom+'%';$('#bgBlur').value=b.blur;$('#bgBlurVal').textContent=b.blur;$('#padX').value=b.padX;$('#padXVal').textContent=b.padX+'px';$('#padY').value=b.padY;$('#padYVal').textContent=b.padY+'px';$('#roundCorners').checked=!!b.round;
   setBgModeUI(b.mode); loadBubbleSideControls(bubbleEditSide);
 }
-function setBgModeUI(mode){ if(mode!=='image')state.bg.imageBaseMode=mode; state.bg.mode=mode; $$('#bgModeSeg [data-bgmode]').forEach(b=>b.classList.toggle('active',b.dataset.bgmode===mode)); $('#bgSolidPanel').style.display=mode==='solid'?'':'none';$('#bgGradientPanel').style.display=mode==='gradient'?'':'none';$('#bgImagePanel').style.display=mode==='image'?'':'none'; renderBackground(); saveSettings(); }
+function setBgModeUI(mode){ if(mode!=='image')state.bg.imageBaseMode=mode; state.bg.mode=mode; syncBrightnessControl(); $$('#bgModeSeg [data-bgmode]').forEach(b=>b.classList.toggle('active',b.dataset.bgmode===mode)); $('#bgSolidPanel').style.display=mode==='solid'?'':'none';$('#bgGradientPanel').style.display=mode==='gradient'?'':'none';$('#bgImagePanel').style.display=mode==='image'?'':'none'; renderBackground(); saveSettings(); }
 
 $$('.collapse .head[data-toggle]').forEach(h=>h.addEventListener('click',()=>h.parentElement.classList.toggle('open')));
 $('#fontFamily').addEventListener('change',e=>{state.fontFamily=e.target.value;saveSettings();applyGlobalText()});
@@ -974,11 +995,15 @@ $('#bgColor').addEventListener('input',e=>{state.bg.color=e.target.value;saveSet
 $('#gradStart').addEventListener('input',e=>{state.bg.gradStart=e.target.value;saveSettings();renderBackground()});
 $('#gradEnd').addEventListener('input',e=>{state.bg.gradEnd=e.target.value;saveSettings();renderBackground()});
 $('#gradDir').addEventListener('change',e=>{state.bg.gradDir=e.target.value;saveSettings();renderBackground()});
-[['bgX','x',v=>v],['bgY','y',v=>v],['bgZoom','zoom',v=>v+'%'],['bgBlur','blur',v=>v],['brightness','brightness',v=>v],['padX','padX',v=>v+'px'],['padY','padY',v=>v+'px']].forEach(([id,key,fmt])=>{const el=$('#'+id),out=$('#'+id+'Val');el.addEventListener('input',()=>{state.bg[key]=+el.value;out.textContent=fmt(el.value);saveSettings();renderBackground()})});
+[['bgX','x',v=>v],['bgY','y',v=>v],['bgZoom','zoom',v=>v+'%'],['bgBlur','blur',v=>v],['padX','padX',v=>v+'px'],['padY','padY',v=>v+'px']].forEach(([id,key,fmt])=>{const el=$('#'+id),out=$('#'+id+'Val');el.addEventListener('input',()=>{state.bg[key]=+el.value;out.textContent=fmt(el.value);saveSettings();renderBackground()})});
 $('#roundCorners').addEventListener('change',e=>{state.bg.round=e.target.checked;saveSettings();renderBackground()});
+$('#brightness').addEventListener('input',e=>{
+  state.bg.brightnessByMode[state.bg.mode]=+e.target.value;
+  syncBrightnessControl();renderBackground();saveSettings();
+});
 $('#bgImageUpload').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];if(!f)return;assets.bgImage=await readAsDataURL(f);await idbSet('bgImage',assets.bgImage);state.bg.x=0;state.bg.y=0;state.bg.zoom=100;state.bg.mode='image';renderControls();e.target.value=''});
-$('#presetWhite').addEventListener('click',()=>{state.bg.brightness=DEFAULTS.bg.brightness;state.bg.mode='solid';state.bg.color='#ffffff';state.textColor='#222222';saveSettings();renderControls();applyGlobalText()});
-$('#presetDark').addEventListener('click',()=>{state.bg.brightness=DEFAULTS.bg.brightness;state.bg.mode='solid';state.bg.color='#1e1f26';state.textColor='#ffffff';saveSettings();renderControls();applyGlobalText()});
+$('#presetWhite').addEventListener('click',()=>{state.bg.brightnessByMode.solid=DEFAULTS.bg.brightnessByMode.solid;state.bg.mode='solid';state.bg.color='#ffffff';state.textColor='#222222';renderControls();applyGlobalText()});
+$('#presetDark').addEventListener('click',()=>{state.bg.brightnessByMode.solid=DEFAULTS.bg.brightnessByMode.solid;state.bg.mode='solid';state.bg.color='#1e1f26';state.textColor='#ffffff';renderControls();applyGlobalText()});
 
 function loadBubbleSideControls(side){ bubbleEditSide=side; const c=state.bubble[side]; $('#bubbleSideTitle').textContent=(side==='left'?'왼쪽':'오른쪽')+' 말풍선 기본값'; $$('#bubbleSideSeg [data-bside]').forEach(b=>b.classList.toggle('active',b.dataset.bside===side)); $('#bubbleBg').value=c.bg;$('#bubbleOpacity').value=c.opacity;$('#bubbleOpacityVal').textContent=c.opacity+'%';$('#bubbleText').value=c.text;$('#bubbleFontSize').value=c.fontSize==null?'':c.fontSize;$('#bubbleShadow').value=c.shadow;$('#bubbleShadowVal').textContent=c.shadow;$('#profileShow').checked=!!c.showProfile;$('#profileZoom').value=c.profileZoom;$('#profileZoomVal').textContent=c.profileZoom+'%';$('#profileX').value=c.profileX;$('#profileXVal').textContent=c.profileX;$('#profileY').value=c.profileY;$('#profileYVal').textContent=c.profileY; }
 $('#bubbleSideSeg').addEventListener('click',e=>{const b=e.target.closest('[data-bside]');if(b)loadBubbleSideControls(b.dataset.bside)});
