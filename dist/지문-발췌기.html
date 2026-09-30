@@ -1109,6 +1109,52 @@ function buildCaptureBubbleShadows(root){
   return ()=>created.forEach(el=>el.remove());
 }
 
+function pngError(stage,error){
+  const detail=error instanceof Error?error.message:(error?.type?`브라우저 ${error.type} 이벤트`:String(error));
+  return new Error(`[${stage}] ${detail}`);
+}
+async function prepareCanvasRendererClone(doc,root){
+  // 일반 html2canvas는 여러 줄 inline 배경을 하나의 사각형으로 해석한다.
+  // 복제본에서 실제 텍스트를 줄별 inline span으로 나누되 BR/폭/좌표는 지정하지 않는다.
+  // 원본 문자 범위와 미리보기 DOM은 그대로이며 각 문자는 자신의 배경을 유지한다.
+  root.querySelectorAll('.output-highlight').forEach(span=>{
+    const node=span.firstChild;if(!node || node.nodeType!==3)return;
+    const text=node.data,range=doc.createRange(),parts=[];
+    const segments=typeof Intl.Segmenter==='function'?[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].map(x=>x.segment):Array.from(text);
+    let offset=0,top=null;
+    for(const segment of segments){
+      range.setStart(node,offset);range.setEnd(node,offset+segment.length);
+      const rect=range.getBoundingClientRect();
+      if(top===null || Math.abs(rect.top-top)>1){parts.push(segment);top=rect.top;}
+      else parts[parts.length-1]+=segment;
+      offset+=segment.length;
+    }
+    if(parts.length<2)return;
+    const fragment=doc.createDocumentFragment();
+    for(const text of parts){const run=span.cloneNode(false);run.textContent=text;fragment.appendChild(run);}
+    span.replaceWith(fragment);
+  });
+  // 일반 renderer가 지원하지 않는 CSS blur만 순수 SVG 이미지 필터로 전달한다.
+  // foreignObject 없이 원본 전체를 같은 크기/위치로 그리며 앱의 원본 데이터는 변경하지 않는다.
+  const img=root.querySelector('.canvas-bg-img');
+  if(!img || getComputedStyle(img).display==='none')return;
+  const filter=img.style.filter.match(/^blur\(([\d.]+)px\)$/);
+  if(!filter || +filter[1]===0)return;
+  const blur=+filter[1],w=root.clientWidth,h=root.clientHeight,pad=blur*3;
+  const ns='http://www.w3.org/2000/svg',svg=doc.createElementNS(ns,'svg');
+  svg.setAttribute('width',w);svg.setAttribute('height',h);
+  const defs=doc.createElementNS(ns,'defs'),f=doc.createElementNS(ns,'filter');
+  f.id='backgroundBlur';f.setAttribute('filterUnits','userSpaceOnUse');f.setAttribute('x',-pad);f.setAttribute('y',-pad);f.setAttribute('width',w+2*pad);f.setAttribute('height',h+2*pad);f.setAttribute('color-interpolation-filters','sRGB');
+  const gaussian=doc.createElementNS(ns,'feGaussianBlur');gaussian.setAttribute('stdDeviation',blur);f.appendChild(gaussian);defs.appendChild(f);svg.appendChild(defs);
+  const image=doc.createElementNS(ns,'image');image.setAttribute('href',img.src);image.setAttributeNS('http://www.w3.org/1999/xlink','xlink:href',img.src);
+  image.setAttribute('x',parseFloat(img.style.left)||0);image.setAttribute('y',parseFloat(img.style.top)||0);
+  image.setAttribute('width',img.width);image.setAttribute('height',img.height);svg.appendChild(image.cloneNode(true));image.setAttribute('filter','url(#backgroundBlur)');svg.appendChild(image);
+  root.querySelector('.canvas-bg-solid').style.backgroundImage='none';
+  img.style.filter='none';img.style.left='0';img.style.top='0';img.style.width=w+'px';img.style.height=h+'px';
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+  try{await img.decode();}catch(e){throw pngError('html2canvas 배경 blur 이미지 decode',e);}
+}
+
 function normalizeOutputPng(dataUrl,w,h,fill){
   return new Promise((resolve,reject)=>{
     const img=new Image();
@@ -1121,9 +1167,9 @@ function normalizeOutputPng(dataUrl,w,h,fill){
         ctx.fillRect(0,0,w,h);
         ctx.drawImage(img,0,0,w,h);
         resolve(c.toDataURL('image/png'));
-      }catch(e){reject(e)}
+      }catch(e){reject(pngError('normalizeOutputPng canvas/toDataURL',e))}
     };
-    img.onerror=reject;img.src=dataUrl;
+    img.onerror=e=>reject(pngError('normalizeOutputPng decode',e));img.src=dataUrl;
   });
 }
 
@@ -1296,30 +1342,17 @@ async function downloadPreparedOutput(){
         }
       });
     }catch(err){
-      const fallbackScale=Math.max(1,Math.floor(ratio));
-      const hc=await window.html2canvas(preparedOutput,{
-        scale:fallbackScale,backgroundColor:captureBg,
-        // 대체 엔진도 브라우저의 inline 배경 렌더링을 사용한다.
-        // 여러 줄 span을 하나의 bounding rectangle로 칠하는 경로는 사용하지 않는다.
-        foreignObjectRendering:true,
-        x:0,y:0,
-        onclone:(doc,element)=>{
-          element.style.position='fixed';element.style.left='0';element.style.top='0';element.style.margin='0';
-          element.style.transform='none';
-          if(preparedOutput._fontEmbedCSS){
-            const style=doc.createElement('style');style.textContent=preparedOutput._fontEmbedCSS;
-            element.prepend(style);
-          }
-        },
-        useCORS:true,logging:false,width:w+Math.ceil(fallbackScale),height:h+Math.ceil(fallbackScale),scrollX:0,scrollY:0
-      });
-      // html2canvas 1.4.1의 foreignObject 원점 여백만 제거한다.
-      // 원본 배경 이미지나 출력 DOM의 텍스트 배치는 변경하지 않는다.
-      const trimmed=document.createElement('canvas');
-      trimmed.width=Math.round(w*fallbackScale);trimmed.height=Math.round(h*fallbackScale);
-      const inset=Math.ceil(fallbackScale)*fallbackScale;
-      trimmed.getContext('2d').drawImage(hc,inset,inset,w*fallbackScale,h*fallbackScale,0,0,trimmed.width,trimmed.height);
-      dataUrl=trimmed.toDataURL('image/png');
+      const firstError=pngError('html-to-image.toPng',err);
+      console.warn(firstError.message);
+      try{
+        const hc=await window.html2canvas(preparedOutput,{
+          scale:Math.min(2.5,ratio),backgroundColor:captureBg,
+          // 기준 버전과 동일한 일반 canvas renderer. foreignObject/원점 보정/trim 제거.
+          foreignObjectRendering:false,onclone:prepareCanvasRendererClone,
+          useCORS:true,logging:false,width:w,height:h,scrollX:0,scrollY:0
+        });
+        try{dataUrl=hc.toDataURL('image/png');}catch(e){throw pngError('html2canvas canvas/toDataURL',e);}
+      }catch(e){throw Error(firstError.message+'\n'+pngError('html2canvas fallback',e).message);}
     }
 
     dataUrl=await normalizeOutputPng(
@@ -1332,7 +1365,8 @@ async function downloadPreparedOutput(){
     const a=document.createElement('a');
     a.href=dataUrl;
     a.download='지문_발췌_v2_'+Date.now()+'.png';
-    document.body.appendChild(a);a.click();a.remove();
+    document.body.appendChild(a);
+    try{a.click();}catch(e){throw pngError('PNG 다운로드 요청',e);}finally{a.remove();}
   }catch(err){
     alert('이미지 저장 중 문제가 발생했어요.\n'+err);
   }finally{
