@@ -156,6 +156,18 @@ body.output-preview-lock{overflow:hidden!important}
 .paragraph-style-chip{position:absolute;right:0;top:-25px;height:22px;z-index:12;opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:2px 9px;color:var(--accent2);white-space:nowrap}
 .paragraph-block:hover .paragraph-style-chip,.paragraph-block.selected .paragraph-style-chip,.paragraph-block:focus-within .paragraph-style-chip{opacity:1;pointer-events:auto}
 @media (hover:none){.paragraph-style-chip{opacity:.8;pointer-events:auto}}
+
+/* Mobile editing overlays share one top position; selection takes priority. */
+@media(max-width:860px){
+  .mobile-settings-btn{top:calc(14px + env(safe-area-inset-top,0px))}
+  .selection-toolbar,.mobile-block-tools:not([hidden]){
+    top:calc(60px + env(safe-area-inset-top,0px));bottom:auto;
+    max-width:calc(100vw - 28px);box-sizing:border-box;overflow-x:auto;
+  }
+  .selection-toolbar button,.mobile-block-tools button{flex-shrink:0}
+  body:has(#selectionToolbar.show) .mobile-block-tools,
+  body.output-preview-lock .selection-toolbar,body.sheet-lock .selection-toolbar{display:none!important}
+}
 </style>
 <style id="customFontStyles"></style>
 </head>
