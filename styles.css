@@ -140,3 +140,6 @@ body.output-preview-lock{overflow:hidden!important}
   .mobile-block-tools button{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);white-space:nowrap}
   body.output-preview-lock .mobile-block-tools,body.sheet-lock .mobile-block-tools{display:none!important}
 }
+.paragraph-style-chip{position:absolute;right:0;top:-25px;height:22px;z-index:12;opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:2px 9px;color:var(--accent2);white-space:nowrap}
+.paragraph-block:hover .paragraph-style-chip,.paragraph-block.selected .paragraph-style-chip,.paragraph-block:focus-within .paragraph-style-chip{opacity:1;pointer-events:auto}
+@media (hover:none){.paragraph-style-chip{opacity:.8;pointer-events:auto}}

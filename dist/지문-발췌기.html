@@ -11,6 +11,7 @@
 <script src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <style>
+
 :root{
   --bg:#ffffff; --panel:#f5f7f9; --panel2:#eef2f5; --line:#dde4ea;
   --accent:#74a5c2; --accent2:#517f9d; --text:#2b3138; --muted:#6a7480;
@@ -152,6 +153,9 @@ body.output-preview-lock{overflow:hidden!important}
   .mobile-block-tools button{min-width:44px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);white-space:nowrap}
   body.output-preview-lock .mobile-block-tools,body.sheet-lock .mobile-block-tools{display:none!important}
 }
+.paragraph-style-chip{position:absolute;right:0;top:-25px;height:22px;z-index:12;opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:2px 9px;color:var(--accent2);white-space:nowrap}
+.paragraph-block:hover .paragraph-style-chip,.paragraph-block.selected .paragraph-style-chip,.paragraph-block:focus-within .paragraph-style-chip{opacity:1;pointer-events:auto}
+@media (hover:none){.paragraph-style-chip{opacity:.8;pointer-events:auto}}
 </style>
 <style id="customFontStyles"></style>
 </head>
@@ -271,6 +275,10 @@ body.output-preview-lock{overflow:hidden!important}
 <div class="sheet-backdrop" id="sheetBackdrop"></div>
 <div class="inspector" id="bubbleInspector">
   <div class="inspector-head"><h3>말풍선 개별 설정</h3><button class="close" id="closeInspector">✕</button></div>
+  <div id="paragraphInsFields" hidden>
+    <div class="field"><label><input type="checkbox" id="paragraphUseDefault" checked> 기본값 사용</label></div>
+    <div class="field"><label for="paragraphFontSize">개별 글자 크기 (8–48px)</label><input type="number" id="paragraphFontSize" min="8" max="48" step="1"><p class="hint" id="paragraphFontHint"></p></div>
+  </div>
   <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="insUseDefault" checked> 이 방향의 기본 설정 따름</label></div>
   <div id="insFields">
     <div class="field"><label>말풍선 색 · 투명도</label><div class="row"><input type="color" id="insBg"><input type="range" id="insOpacity" min="10" max="100"><span class="val" id="insOpacityVal"></span></div></div>
@@ -303,6 +311,7 @@ body.output-preview-lock{overflow:hidden!important}
 <div class="capture-toast" id="captureToast">이미지 저장 중…</div>
 
 <script>
+
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
@@ -313,6 +322,7 @@ const STORAGE_KEY = 'jimun-extractor-v2:settings';
 const DB_NAME = 'jimun-extractor-v2-assets', DB_STORE = 'assets';
 let scale = 1, blockSeq = 1, activeBubbleId = null, activeHtmlId = null, savedRange = null, savedEditable = null;
 let bubbleEditSide = 'right';
+let activeParagraphId = null;
 const bubbleOverrides = new Map();
 const customFonts = [];
 // 입력/붙여넣기/undo 후 동기화하며, 출력에는 문자 범위 스냅샷을 사용한다.
@@ -493,12 +503,20 @@ function applyBubbleStyle(block){
   frame.classList.toggle('hidden',!cfg.showProfile); const src=cfg.profile||null; setProfileSource(img,src); frame.classList.toggle('has-img',!!src);
   img.style.transform=`translate(-50%,-50%) translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
 }
+// Block-owned override survives moves/DOM snapshots without an orphan registry.
+function effectiveParagraphFontSize(block){
+  try{
+    const value=JSON.parse(block.dataset.paragraphOverride||'{}').fontSize;
+    if(typeof value==='number' && Number.isFinite(value))return clamp(value,8,48);
+  }catch(e){}
+  return state.fontSize;
+}
 function applyParagraphStyle(block){
   if(!block || !block.classList.contains('paragraph-block')) return;
   const el=block.querySelector('.editable');
   if(!el)return;
   el.style.fontFamily=fontCSSValue(state.fontFamily);
-  el.style.fontSize=state.fontSize+'px';
+  el.style.fontSize=effectiveParagraphFontSize(block)+'px';
   el.style.lineHeight=state.lineHeight;
   el.style.color=state.textColor;
 }
@@ -708,7 +726,7 @@ function createBlock(type,side){
   const tools=`<div class="block-tools" contenteditable="false"><button class="block-tool move-up" title="위로">↑</button><button class="block-tool move-down" title="아래로">↓</button><button class="block-tool delete" title="삭제">✕</button></div>`;
   if(type==='paragraph'){
     block.classList.add('paragraph-block'); block.dataset.type='paragraph';
-    block.innerHTML=`${tools}<div class="block-inner"><div class="editable" contenteditable="true" data-placeholder="문단을 입력하거나 붙여넣으세요"></div></div>`;
+    block.innerHTML=`${tools}<button class="style-chip paragraph-style-chip" type="button" contenteditable="false">개별 스타일</button><div class="block-inner"><div class="editable" contenteditable="true" data-placeholder="문단을 입력하거나 붙여넣으세요"></div></div>`;
   }else if(type==='html'){
     block.classList.add('html-block'); block.dataset.type='html';
     block.innerHTML=`${tools}<div class="block-inner"><div class="html-preview is-empty">사이드바에서 HTML 코드를 입력하세요</div></div>`;
@@ -727,6 +745,11 @@ function attachBlockEvents(block){
   block.querySelector('.move-down').addEventListener('click',e=>{e.stopPropagation();moveBlock(block,1)});
   block.querySelector('.delete').addEventListener('click',e=>{
     e.stopPropagation();
+    if(block.classList.contains('paragraph-block')){
+      delete block.dataset.paragraphOverride;
+      applyParagraphStyle(block);
+      if(activeParagraphId===block.dataset.id)closeInspector();
+    }
     if($$('.content-block').length===1){
       if(block.classList.contains('html-block')){ renderHtmlBlock(block,''); showHtmlEditor(block); }
       else { const ed=block.querySelector('.editable'); if(ed)ed.innerHTML=''; }
@@ -739,6 +762,9 @@ function attachBlockEvents(block){
   });
   if(block.classList.contains('bubble-block')){
     block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openBubbleInspector(block)});
+  }
+  if(block.classList.contains('paragraph-block')){
+    block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openParagraphInspector(block)});
   }
   if(block.classList.contains('html-block')){
     block.querySelector('.html-preview').addEventListener('click',e=>{
@@ -1014,8 +1040,37 @@ $('#profileUpload').addEventListener('change',async e=>{const f=e.target.files&&
 const backdrop=$('#sheetBackdrop'), inspector=$('#bubbleInspector'), insFields=$('#insFields');
 function syncSheetLock(){ const open=inspector.classList.contains('show')||$('#sidebar').classList.contains('mobile-open'); document.body.classList.toggle('sheet-lock',open&&window.innerWidth<=860); }
 function showBackdrop(){backdrop.classList.add('show');syncSheetLock()}function hideBackdropIfFree(){if(!inspector.classList.contains('show')&&!$('#sidebar').classList.contains('mobile-open'))backdrop.classList.remove('show');syncSheetLock()}
-function openBubbleInspector(block){ activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
-function closeInspector(){inspector.classList.remove('show');hideBackdropIfFree()}
+function setInspectorMode(paragraph){
+  $('#paragraphInsFields').hidden=!paragraph;
+  insFields.hidden=paragraph;
+  $('#insUseDefault').closest('.field').hidden=paragraph;
+  inspector.querySelector('h3').textContent=paragraph?'문단 개별 설정':'말풍선 개별 설정';
+}
+function openParagraphInspector(block){
+  activeParagraphId=block.dataset.id;activeBubbleId=null;selectBlock(block);setInspectorMode(true);
+  const useDefault=!block.dataset.paragraphOverride;
+  $('#paragraphUseDefault').checked=useDefault;
+  $('#paragraphFontSize').value=effectiveParagraphFontSize(block);
+  $('#paragraphFontSize').disabled=useDefault;
+  $('#paragraphFontHint').textContent='현재 기본 글자 크기: '+state.fontSize+'px';
+  inspector.classList.add('show');showBackdrop();hideSelectionToolbar();
+}
+function activeParagraph(){return blockList.querySelector('.paragraph-block[data-id="'+activeParagraphId+'"]')}
+$('#paragraphUseDefault').addEventListener('change',e=>{
+  const block=activeParagraph();if(!block)return;
+  if(e.target.checked)delete block.dataset.paragraphOverride;
+  else block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(state.fontSize,8,48)});
+  applyParagraphStyle(block);openParagraphInspector(block);relayout();
+});
+$('#paragraphFontSize').addEventListener('input',e=>{
+  const block=activeParagraph(),value=e.target.valueAsNumber;
+  if(!block||!Number.isFinite(value))return;
+  block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(value,8,48)});
+  applyParagraphStyle(block);relayout();
+});
+$('#paragraphFontSize').addEventListener('change',()=>{const block=activeParagraph();if(block)$('#paragraphFontSize').value=effectiveParagraphFontSize(block)});
+function openBubbleInspector(block){ activeParagraphId=null;setInspectorMode(false); activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
+function closeInspector(){activeParagraphId=null;activeBubbleId=null;inspector.classList.remove('show');hideBackdropIfFree()}
 $('#closeInspector').addEventListener('click',closeInspector);backdrop.addEventListener('click',()=>{closeInspector();closeSidebar()});
 $('#insUseDefault').addEventListener('change',e=>{const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return; const side=b.dataset.side; if(e.target.checked){bubbleOverrides.set(activeBubbleId,{useDefault:true});}else{const base={...state.bubble[side],profile:assets[side+'Profile']};bubbleOverrides.set(activeBubbleId,{...base,useDefault:false});} openBubbleInspector(b);applyBubbleStyle(b)});
 function updateOverride(key,val){const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return;let o=bubbleOverrides.get(activeBubbleId);if(!o||o.useDefault!==false){const side=b.dataset.side;o={...state.bubble[side],profile:assets[side+'Profile'],useDefault:false};bubbleOverrides.set(activeBubbleId,o);$('#insUseDefault').checked=false;insFields.classList.remove('disabled');}o[key]=val;applyBubbleStyle(b)}

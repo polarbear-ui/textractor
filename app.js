@@ -9,6 +9,7 @@ const STORAGE_KEY = 'jimun-extractor-v2:settings';
 const DB_NAME = 'jimun-extractor-v2-assets', DB_STORE = 'assets';
 let scale = 1, blockSeq = 1, activeBubbleId = null, activeHtmlId = null, savedRange = null, savedEditable = null;
 let bubbleEditSide = 'right';
+let activeParagraphId = null;
 const bubbleOverrides = new Map();
 const customFonts = [];
 // 입력/붙여넣기/undo 후 동기화하며, 출력에는 문자 범위 스냅샷을 사용한다.
@@ -189,12 +190,20 @@ function applyBubbleStyle(block){
   frame.classList.toggle('hidden',!cfg.showProfile); const src=cfg.profile||null; setProfileSource(img,src); frame.classList.toggle('has-img',!!src);
   img.style.transform=`translate(-50%,-50%) translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
 }
+// Block-owned override survives moves/DOM snapshots without an orphan registry.
+function effectiveParagraphFontSize(block){
+  try{
+    const value=JSON.parse(block.dataset.paragraphOverride||'{}').fontSize;
+    if(typeof value==='number' && Number.isFinite(value))return clamp(value,8,48);
+  }catch(e){}
+  return state.fontSize;
+}
 function applyParagraphStyle(block){
   if(!block || !block.classList.contains('paragraph-block')) return;
   const el=block.querySelector('.editable');
   if(!el)return;
   el.style.fontFamily=fontCSSValue(state.fontFamily);
-  el.style.fontSize=state.fontSize+'px';
+  el.style.fontSize=effectiveParagraphFontSize(block)+'px';
   el.style.lineHeight=state.lineHeight;
   el.style.color=state.textColor;
 }
@@ -404,7 +413,7 @@ function createBlock(type,side){
   const tools=`<div class="block-tools" contenteditable="false"><button class="block-tool move-up" title="위로">↑</button><button class="block-tool move-down" title="아래로">↓</button><button class="block-tool delete" title="삭제">✕</button></div>`;
   if(type==='paragraph'){
     block.classList.add('paragraph-block'); block.dataset.type='paragraph';
-    block.innerHTML=`${tools}<div class="block-inner"><div class="editable" contenteditable="true" data-placeholder="문단을 입력하거나 붙여넣으세요"></div></div>`;
+    block.innerHTML=`${tools}<button class="style-chip paragraph-style-chip" type="button" contenteditable="false">개별 스타일</button><div class="block-inner"><div class="editable" contenteditable="true" data-placeholder="문단을 입력하거나 붙여넣으세요"></div></div>`;
   }else if(type==='html'){
     block.classList.add('html-block'); block.dataset.type='html';
     block.innerHTML=`${tools}<div class="block-inner"><div class="html-preview is-empty">사이드바에서 HTML 코드를 입력하세요</div></div>`;
@@ -423,6 +432,11 @@ function attachBlockEvents(block){
   block.querySelector('.move-down').addEventListener('click',e=>{e.stopPropagation();moveBlock(block,1)});
   block.querySelector('.delete').addEventListener('click',e=>{
     e.stopPropagation();
+    if(block.classList.contains('paragraph-block')){
+      delete block.dataset.paragraphOverride;
+      applyParagraphStyle(block);
+      if(activeParagraphId===block.dataset.id)closeInspector();
+    }
     if($$('.content-block').length===1){
       if(block.classList.contains('html-block')){ renderHtmlBlock(block,''); showHtmlEditor(block); }
       else { const ed=block.querySelector('.editable'); if(ed)ed.innerHTML=''; }
@@ -435,6 +449,9 @@ function attachBlockEvents(block){
   });
   if(block.classList.contains('bubble-block')){
     block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openBubbleInspector(block)});
+  }
+  if(block.classList.contains('paragraph-block')){
+    block.querySelector('.style-chip').addEventListener('click',e=>{e.stopPropagation();openParagraphInspector(block)});
   }
   if(block.classList.contains('html-block')){
     block.querySelector('.html-preview').addEventListener('click',e=>{
@@ -710,8 +727,37 @@ $('#profileUpload').addEventListener('change',async e=>{const f=e.target.files&&
 const backdrop=$('#sheetBackdrop'), inspector=$('#bubbleInspector'), insFields=$('#insFields');
 function syncSheetLock(){ const open=inspector.classList.contains('show')||$('#sidebar').classList.contains('mobile-open'); document.body.classList.toggle('sheet-lock',open&&window.innerWidth<=860); }
 function showBackdrop(){backdrop.classList.add('show');syncSheetLock()}function hideBackdropIfFree(){if(!inspector.classList.contains('show')&&!$('#sidebar').classList.contains('mobile-open'))backdrop.classList.remove('show');syncSheetLock()}
-function openBubbleInspector(block){ activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
-function closeInspector(){inspector.classList.remove('show');hideBackdropIfFree()}
+function setInspectorMode(paragraph){
+  $('#paragraphInsFields').hidden=!paragraph;
+  insFields.hidden=paragraph;
+  $('#insUseDefault').closest('.field').hidden=paragraph;
+  inspector.querySelector('h3').textContent=paragraph?'문단 개별 설정':'말풍선 개별 설정';
+}
+function openParagraphInspector(block){
+  activeParagraphId=block.dataset.id;activeBubbleId=null;selectBlock(block);setInspectorMode(true);
+  const useDefault=!block.dataset.paragraphOverride;
+  $('#paragraphUseDefault').checked=useDefault;
+  $('#paragraphFontSize').value=effectiveParagraphFontSize(block);
+  $('#paragraphFontSize').disabled=useDefault;
+  $('#paragraphFontHint').textContent='현재 기본 글자 크기: '+state.fontSize+'px';
+  inspector.classList.add('show');showBackdrop();hideSelectionToolbar();
+}
+function activeParagraph(){return blockList.querySelector('.paragraph-block[data-id="'+activeParagraphId+'"]')}
+$('#paragraphUseDefault').addEventListener('change',e=>{
+  const block=activeParagraph();if(!block)return;
+  if(e.target.checked)delete block.dataset.paragraphOverride;
+  else block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(state.fontSize,8,48)});
+  applyParagraphStyle(block);openParagraphInspector(block);relayout();
+});
+$('#paragraphFontSize').addEventListener('input',e=>{
+  const block=activeParagraph(),value=e.target.valueAsNumber;
+  if(!block||!Number.isFinite(value))return;
+  block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(value,8,48)});
+  applyParagraphStyle(block);relayout();
+});
+$('#paragraphFontSize').addEventListener('change',()=>{const block=activeParagraph();if(block)$('#paragraphFontSize').value=effectiveParagraphFontSize(block)});
+function openBubbleInspector(block){ activeParagraphId=null;setInspectorMode(false); activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
+function closeInspector(){activeParagraphId=null;activeBubbleId=null;inspector.classList.remove('show');hideBackdropIfFree()}
 $('#closeInspector').addEventListener('click',closeInspector);backdrop.addEventListener('click',()=>{closeInspector();closeSidebar()});
 $('#insUseDefault').addEventListener('change',e=>{const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return; const side=b.dataset.side; if(e.target.checked){bubbleOverrides.set(activeBubbleId,{useDefault:true});}else{const base={...state.bubble[side],profile:assets[side+'Profile']};bubbleOverrides.set(activeBubbleId,{...base,useDefault:false});} openBubbleInspector(b);applyBubbleStyle(b)});
 function updateOverride(key,val){const b=$(`.bubble-block[data-id="${activeBubbleId}"]`);if(!b)return;let o=bubbleOverrides.get(activeBubbleId);if(!o||o.useDefault!==false){const side=b.dataset.side;o={...state.bubble[side],profile:assets[side+'Profile'],useDefault:false};bubbleOverrides.set(activeBubbleId,o);$('#insUseDefault').checked=false;insFields.classList.remove('disabled');}o[key]=val;applyBubbleStyle(b)}
