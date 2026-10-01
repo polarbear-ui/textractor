@@ -1114,25 +1114,38 @@ function pngError(stage,error){
   return new Error(`[${stage}] ${detail}`);
 }
 async function prepareCanvasRendererClone(doc,root){
-  // 일반 html2canvas는 여러 줄 inline 배경을 하나의 사각형으로 해석한다.
-  // 복제본에서 실제 텍스트를 줄별 inline span으로 나누되 BR/폭/좌표는 지정하지 않는다.
-  // 원본 문자 범위와 미리보기 DOM은 그대로이며 각 문자는 자신의 배경을 유지한다.
-  root.querySelectorAll('.output-highlight').forEach(span=>{
-    const node=span.firstChild;if(!node || node.nodeType!==3)return;
-    const text=node.data,range=doc.createRange(),parts=[];
-    const segments=typeof Intl.Segmenter==='function'?[...new Intl.Segmenter(undefined,{granularity:'grapheme'}).segment(text)].map(x=>x.segment):Array.from(text);
-    let offset=0,top=null;
-    for(const segment of segments){
-      range.setStart(node,offset);range.setEnd(node,offset+segment.length);
-      const rect=range.getBoundingClientRect();
-      if(top===null || Math.abs(rect.top-top)>1){parts.push(segment);top=rect.top;}
-      else parts[parts.length-1]+=segment;
-      offset+=segment.length;
-    }
-    if(parts.length<2)return;
-    const fragment=doc.createDocumentFragment();
-    for(const text of parts){const run=span.cloneNode(false);run.textContent=text;fragment.appendChild(run);}
-    span.replaceWith(fragment);
+  // 폰트가 확정된 최종 clone에서만 문자 영역을 측정한다. 텍스트는 분할하지 않는다.
+  await doc.fonts.ready;
+  root.querySelectorAll('.editable').forEach(editable=>{
+    const spans=Array.from(editable.querySelectorAll('.output-highlight'));
+    if(!spans.length)return;
+    // 음수 z-index를 이 editable 안에 가둔다. 배경/말풍선 위, 모든 글자 아래에서 그린다.
+    editable.style.position='relative';
+    editable.style.zIndex='0';
+    editable.style.isolation='isolate';
+    const origin=editable.getBoundingClientRect();
+    const style=doc.defaultView.getComputedStyle(editable);
+    const borderX=parseFloat(style.borderLeftWidth)||0,borderY=parseFloat(style.borderTopWidth)||0;
+    const layer=doc.createElement('div');
+    layer.className='fallback-highlight-layer';layer.setAttribute('aria-hidden','true');
+    layer.style.cssText='position:absolute;inset:0;z-index:-1;pointer-events:none';
+    spans.forEach(span=>{
+      const color=doc.defaultView.getComputedStyle(span).backgroundColor;
+      const range=doc.createRange();range.selectNodeContents(span);
+      // getBoundingClientRect()의 여러 줄 통합 사각형을 사용하지 않는다.
+      for(const rect of range.getClientRects()){
+        if(rect.width<=0 || rect.height<=0)continue;
+        const piece=doc.createElement('div');piece.className='fallback-highlight-fragment';
+        piece.style.cssText='position:absolute;pointer-events:none';
+        piece.style.left=(rect.left-origin.left-borderX+editable.scrollLeft)+'px';
+        piece.style.top=(rect.top-origin.top-borderY+editable.scrollTop)+'px';
+        piece.style.width=rect.width+'px';piece.style.height=rect.height+'px';
+        piece.style.backgroundColor=color;layer.appendChild(piece);
+      }
+      // native renderer에 inline 배경을 남기면 나중에 그려진 배경이 앞 글자를 가릴 수 있다.
+      span.style.backgroundColor='transparent';
+    });
+    editable.insertBefore(layer,editable.firstChild);
   });
   // 일반 renderer가 지원하지 않는 CSS blur만 순수 SVG 이미지 필터로 전달한다.
   // foreignObject 없이 원본 전체를 같은 크기/위치로 그리며 앱의 원본 데이터는 변경하지 않는다.
