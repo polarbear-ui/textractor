@@ -156,6 +156,17 @@ body.output-preview-lock{overflow:hidden!important}
 .paragraph-style-chip{position:absolute;right:0;top:-25px;height:22px;z-index:12;opacity:0;pointer-events:none;border:1px solid var(--line);background:#fff;border-radius:999px;font-size:10.5px;padding:2px 9px;color:var(--accent2);white-space:nowrap}
 .paragraph-block:hover .paragraph-style-chip,.paragraph-block.selected .paragraph-style-chip,.paragraph-block:focus-within .paragraph-style-chip{opacity:1;pointer-events:auto}
 @media (hover:none){.paragraph-style-chip{opacity:.8;pointer-events:auto}}
+
+/* Compact mobile block controls are overlays, outside each block's text. */
+.mobile-style-chip{display:none}
+@media(max-width:860px){
+  .mobile-block-tools:not([hidden]){display:none!important}
+  .canvas .block-tools{display:flex!important;right:-28px;opacity:0;pointer-events:none}
+  .canvas .content-block.selected .block-tools{opacity:1;pointer-events:auto}
+  .canvas .mobile-style-chip{display:flex!important;align-items:center;justify-content:center;position:absolute;left:-28px!important;right:auto!important;top:-5px;transform:none;width:24px;height:24px;box-sizing:border-box;padding:4px;border-radius:7px;opacity:1;pointer-events:auto}
+  .mobile-style-chip svg{width:14px;height:14px}
+  .canvas.capturing .block-tools,.canvas.capturing .style-chip,.canvas.output-canvas .block-tools,.canvas.output-canvas .style-chip{display:none!important}
+}
 </style>
 <style id="customFontStyles"></style>
 </head>
@@ -735,6 +746,16 @@ function createBlock(type,side){
     block.classList.add('bubble-block'); block.dataset.type='bubble'; block.dataset.side=side;
     block.innerHTML=`${tools}<div class="block-inner"><div class="bubble-row"><div class="profile-frame"><img alt=""><span class="profile-placeholder">◉</span></div><div class="bubble-stack"><div class="bubble-shell"><svg class="bubble-art" aria-hidden="true" viewBox="0 0 10 10" preserveAspectRatio="none"><defs><filter class="bubble-filter" filterUnits="userSpaceOnUse"><feGaussianBlur class="bubble-blur" in="SourceAlpha" stdDeviation="3" result="blur"/><feOffset class="bubble-offset" in="blur" dx="0" dy="3" result="offsetBlur"/><feFlood class="bubble-flood" flood-color="#000" flood-opacity="0.14" result="shadowColor"/><feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path class="bubble-main" d="M0 0"></path></svg><div class="editable" contenteditable="true" data-placeholder="말풍선을 입력하세요"></div></div><button class="style-chip" type="button" contenteditable="false">개별 스타일</button></div></div></div>`;
     bubbleOverrides.set(id,{useDefault:true});
+  }
+  const styleSource=block.querySelector('.style-chip');
+  if(styleSource){
+    const mobileStyle=document.createElement('button');
+    mobileStyle.type='button';mobileStyle.className='style-chip mobile-style-chip';
+    mobileStyle.title='개별 스타일';mobileStyle.setAttribute('aria-label','개별 스타일');
+    mobileStyle.setAttribute('contenteditable','false');
+    mobileStyle.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4h14M1 12h14"/><circle cx="5" cy="4" r="2" fill="white"/><circle cx="11" cy="12" r="2" fill="white"/></svg>';
+    mobileStyle.addEventListener('click',e=>{e.stopPropagation();styleSource.click()});
+    block.appendChild(mobileStyle);
   }
   attachBlockEvents(block); if(type==='paragraph') applyParagraphStyle(block); else if(type==='bubble') applyBubbleStyle(block); return block;
 }

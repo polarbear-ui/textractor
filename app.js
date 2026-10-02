@@ -423,6 +423,16 @@ function createBlock(type,side){
     block.innerHTML=`${tools}<div class="block-inner"><div class="bubble-row"><div class="profile-frame"><img alt=""><span class="profile-placeholder">◉</span></div><div class="bubble-stack"><div class="bubble-shell"><svg class="bubble-art" aria-hidden="true" viewBox="0 0 10 10" preserveAspectRatio="none"><defs><filter class="bubble-filter" filterUnits="userSpaceOnUse"><feGaussianBlur class="bubble-blur" in="SourceAlpha" stdDeviation="3" result="blur"/><feOffset class="bubble-offset" in="blur" dx="0" dy="3" result="offsetBlur"/><feFlood class="bubble-flood" flood-color="#000" flood-opacity="0.14" result="shadowColor"/><feComposite in="shadowColor" in2="offsetBlur" operator="in" result="shadow"/><feMerge><feMergeNode in="shadow"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><path class="bubble-main" d="M0 0"></path></svg><div class="editable" contenteditable="true" data-placeholder="말풍선을 입력하세요"></div></div><button class="style-chip" type="button" contenteditable="false">개별 스타일</button></div></div></div>`;
     bubbleOverrides.set(id,{useDefault:true});
   }
+  const styleSource=block.querySelector('.style-chip');
+  if(styleSource){
+    const mobileStyle=document.createElement('button');
+    mobileStyle.type='button';mobileStyle.className='style-chip mobile-style-chip';
+    mobileStyle.title='개별 스타일';mobileStyle.setAttribute('aria-label','개별 스타일');
+    mobileStyle.setAttribute('contenteditable','false');
+    mobileStyle.innerHTML='<svg viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4h14M1 12h14"/><circle cx="5" cy="4" r="2" fill="white"/><circle cx="11" cy="12" r="2" fill="white"/></svg>';
+    mobileStyle.addEventListener('click',e=>{e.stopPropagation();styleSource.click()});
+    block.appendChild(mobileStyle);
+  }
   attachBlockEvents(block); if(type==='paragraph') applyParagraphStyle(block); else if(type==='bubble') applyBubbleStyle(block); return block;
 }
 function attachBlockEvents(block){
