@@ -999,6 +999,7 @@ function fitOutputPreview(){
 }
 
 async function openOutputPreview(){
+  $('#outputPreview .output-preview-note').textContent='아래 모습이 PNG 출력용 레이아웃입니다.';
   hideSelectionToolbar();closeInspector();closeSidebar();
   const sel=window.getSelection();if(sel)sel.removeAllRanges();
   if(document.activeElement?.blur)document.activeElement.blur();
@@ -1064,9 +1065,90 @@ function closeOutputPreview(){
   syncMobileBlockTools();
 }
 
+async function capturePrimaryPng(root,options){
+  if(!root.querySelector('.bubble-shell')){
+    return {dataUrl:await window.htmlToImage.toPng(root,options),height:options.height,ratio:options.pixelRatio};
+  }
+  // toPng 내부에서 쓰는 동일한 SVG 복제본을 얻는다. 계산된 px 높이는 이 시점에만 해제한다.
+  const svgUrl=await window.htmlToImage.toSvg(root,options);
+  const svgDoc=new DOMParser().parseFromString(decodeURIComponent(svgUrl.slice(svgUrl.indexOf(',')+1)),'image/svg+xml');
+  const svg=svgDoc.documentElement,foreign=svg.querySelector('foreignObject');
+  if(!foreign?.firstElementChild)throw Error('Primary SVG 복제본을 읽지 못했습니다.');
+  const frame=document.createElement('iframe');
+  frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;
+  frame.style.cssText=`position:fixed;left:-10000px;top:0;width:${options.width}px;height:1px;border:0;visibility:hidden;pointer-events:none`;
+  document.body.appendChild(frame);
+  let image=null,bitmap=null;
+  try{
+    const doc=frame.contentDocument;
+    doc.body.style.margin='0';
+    const clone=doc.importNode(foreign.firstElementChild,true);
+    doc.body.appendChild(clone);
+    const naturalHeight=el=>{
+      // 원래 높이는 하한으로만 보존한다. 줄이 늘면 자연스럽게 커질 수 있다.
+      const height=parseFloat(el.style.height),min=parseFloat(el.style.minHeight)||0;
+      if(Number.isFinite(height))el.style.setProperty('min-height',Math.max(height,min)+'px','important');
+      el.style.setProperty('height','auto','important');
+      el.style.setProperty('block-size','auto','important');
+    };
+    const flow=new Set([clone]);
+    clone.querySelectorAll('.bubble-shell').forEach(shell=>{
+      // 텍스트 내부의 블록 요소도 라이브러리가 px 높이로 복사할 수 있다.
+      shell.querySelectorAll('.editable,.editable div,.editable p').forEach(el=>flow.add(el));
+      for(let el=shell;el&&el!==clone;el=el.parentElement)flow.add(el);
+    });
+    flow.forEach(naturalHeight);
+    const stretch=el=>{
+      el.style.setProperty('height','auto','important');
+      el.style.setProperty('block-size','auto','important');
+      el.style.setProperty('bottom','0px','important');
+    };
+    clone.querySelectorAll('.capture-bubble-shadow-layer').forEach(layer=>{
+      const oldHeight=parseFloat(layer.style.height);
+      stretch(layer);
+      layer.querySelectorAll('.capture-bubble-shadow-piece').forEach(piece=>{
+        // 기존 그림자의 spread와 offsetHeight 반올림 차이까지 유지한다.
+        const extra=parseFloat(piece.style.height)-oldHeight,top=parseFloat(piece.style.top);
+        stretch(piece);
+        piece.style.setProperty('bottom',-(top+extra)+'px','important');
+      });
+    });
+    clone.querySelectorAll('.canvas-bg,.canvas-bg-solid,.canvas-overlay').forEach(stretch);
+    // 삽입된 embedded @font-face가 실제로 사용되도록 레이아웃을 먼저 요청한다.
+    void clone.offsetHeight;
+    await doc.fonts.ready;
+    await Promise.all(Array.from(clone.querySelectorAll('img[src]')).map(img=>img.decode?img.decode():Promise.resolve()));
+    const height=Math.max(options.height,Math.ceil(clone.scrollHeight));
+    // 높이가 늘어난 경우에만 기존 cover 계산을 같은 설정으로 적용한다.
+    if(height>options.height)fitBackgroundImage(clone,clone.querySelector('.canvas-bg-img'));
+    foreign.replaceChild(svgDoc.importNode(clone,true),foreign.firstElementChild);
+    svg.setAttribute('height',String(height));
+    svg.setAttribute('viewBox',`0 0 ${options.width} ${height}`);
+    const finalUrl='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(svg));
+    image=new Image();
+    await new Promise((resolve,reject)=>{
+      image.onload=resolve;image.onerror=()=>reject(Error('Primary SVG 이미지 디코딩 실패'));
+      image.src=finalUrl;
+    });
+    const ratio=Math.max(1.5,Math.min(options.pixelRatio,Math.sqrt(20_000_000/(options.width*height))));
+    bitmap=document.createElement('canvas');
+    bitmap.width=options.width*ratio;bitmap.height=height*ratio;
+    const ctx=bitmap.getContext('2d');
+    ctx.fillStyle=options.backgroundColor;ctx.fillRect(0,0,bitmap.width,bitmap.height);
+    ctx.drawImage(image,0,0,bitmap.width,bitmap.height);
+    return {dataUrl:bitmap.toDataURL('image/png'),height,ratio};
+  }finally{
+    frame.remove();
+    if(image){image.onload=null;image.onerror=null;image.removeAttribute('src');}
+    if(bitmap){bitmap.width=0;bitmap.height=0;}
+  }
+}
+
 async function downloadPreparedOutput(){
   if(!preparedOutput)return;
   const btn=$('#previewDownload'),toast=$('#captureToast');
+  const diagnostic=$('#outputPreview .output-preview-note');
+  diagnostic.textContent='PNG 경로: primary (html-to-image) 시도 중';
   btn.disabled=true;toast.textContent='PNG 저장 중…';toast.classList.add('show');
   $('#previewBack').disabled=true;
 
@@ -1079,7 +1161,8 @@ async function downloadPreparedOutput(){
     await document.fonts.ready;
     await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));
 
-    const w=600,h=Math.ceil(preparedOutput.scrollHeight);
+    const w=600;
+    let h=Math.ceil(preparedOutput.scrollHeight);
     const maxPixels=20_000_000;
     let ratio=Math.min(3,Math.sqrt(maxPixels/(w*h)));
     ratio=Math.max(1.5,ratio);
@@ -1088,7 +1171,7 @@ async function downloadPreparedOutput(){
     let dataUrl;
     try{
       const fontEmbedCSS=preparedOutput._fontEmbedCSS||'';
-      dataUrl=await window.htmlToImage.toPng(preparedOutput,{
+      const primary=await capturePrimaryPng(preparedOutput,{
         width:w,height:h,pixelRatio:ratio,cacheBust:true,
         backgroundColor:captureBg,skipAutoScale:true,fontEmbedCSS,
         style:{
@@ -1096,7 +1179,10 @@ async function downloadPreparedOutput(){
           boxShadow:'none',backgroundColor:captureBg
         }
       });
+      dataUrl=primary.dataUrl;h=primary.height;ratio=primary.ratio;
+      diagnostic.textContent='PNG 생성 경로: primary (html-to-image) 성공';
     }catch(err){
+      diagnostic.textContent='PNG 경로: primary 실패 → fallback (html2canvas) 시도 중';
       const firstError=pngError('html-to-image.toPng',err);
       console.warn(firstError.message);
       try{
@@ -1107,7 +1193,11 @@ async function downloadPreparedOutput(){
           useCORS:true,logging:false,width:w,height:h,scrollX:0,scrollY:0
         });
         try{dataUrl=hc.toDataURL('image/png');}catch(e){throw pngError('html2canvas canvas/toDataURL',e);}
-      }catch(e){throw Error(firstError.message+'\n'+pngError('html2canvas fallback',e).message);}
+        diagnostic.textContent='PNG 생성 경로: fallback (html2canvas) 성공 · primary 실패';
+      }catch(e){
+        diagnostic.textContent='PNG 생성 경로: primary / fallback 모두 실패';
+        throw Error(firstError.message+'\n'+pngError('html2canvas fallback',e).message);
+      }
     }
 
     dataUrl=await normalizeOutputPng(
