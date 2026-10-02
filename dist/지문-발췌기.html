@@ -49,6 +49,11 @@ input[type="range"]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;b
 .block-list{overflow:clip;position:relative;z-index:5;padding:44px 42px;display:flex;flex-direction:column;gap:var(--block-gap,28.8px)}
 .content-block{position:relative;width:100%;user-select:text;margin:0}.block-inner{position:relative}
 .paragraph-block .editable{min-height:28px;outline:none;white-space:pre-wrap;word-break:break-word;font-size:18px;line-height:1.6;color:#222;padding:2px 0}
+.paragraph-glass{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:18px;border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.paragraph-glass[hidden]{display:none}
+.paragraph-setting-title{margin:0 0 10px;font-size:13px}
+.paragraph-glass-settings{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
+#paragraphGlassOpacity:disabled{opacity:.4;cursor:default}
 .editable:empty::before{content:attr(data-placeholder);color:currentColor;opacity:.35;pointer-events:none}.canvas.capturing .editable:empty::before{content:''}
 .block-tools{position:absolute;right:-30px;top:-5px;display:flex;flex-direction:column;gap:4px;z-index:20;opacity:0;pointer-events:none;transition:.12s}.content-block:hover .block-tools,.content-block:focus-within .block-tools,.content-block.selected .block-tools{opacity:1;pointer-events:auto}.block-tool{width:24px;height:24px;border-radius:7px;border:1px solid rgba(0,0,0,.12);background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;font-size:11px;color:#59616b;padding:0}.block-tool:hover{color:var(--accent2);border-color:var(--accent)}.block-tool.delete:hover{color:var(--danger);border-color:var(--danger)}
 .insert-slot{height:0;position:absolute;left:0;right:0;z-index:25;user-select:none;pointer-events:none}.insert-slot::before{content:'';position:absolute;left:10%;right:10%;top:50%;height:1px;background:transparent;transition:.12s}.insert-slot:hover::before,.insert-slot.open::before{background:rgba(116,165,194,.30)}.slot-plus{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);pointer-events:auto;width:25px;height:25px;border:1px dashed rgba(81,127,157,.5);border-radius:50%;background:rgba(255,255,255,.75);color:var(--accent2);display:flex;align-items:center;justify-content:center;font-size:16px;line-height:1;opacity:.25;z-index:1}.insert-slot:hover .slot-plus,.insert-slot.open .slot-plus{opacity:1}.slot-menu{pointer-events:auto;display:none;position:absolute;z-index:30;top:50%;left:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid var(--line);box-shadow:0 8px 24px rgba(0,0,0,.12);border-radius:12px;padding:5px;gap:4px}.insert-slot.open .slot-menu{display:flex}.slot-menu button{width:46px;height:40px;border:0;border-radius:8px;background:transparent;color:var(--text);font-size:17px;display:flex;align-items:center;justify-content:center}.slot-menu button:hover{background:var(--panel2);color:var(--accent2)}.slot-menu svg{width:21px;height:21px;display:block}
@@ -287,8 +292,14 @@ body.output-preview-lock{overflow:hidden!important}
 <div class="inspector" id="bubbleInspector">
   <div class="inspector-head"><h3>말풍선 개별 설정</h3><button class="close" id="closeInspector">✕</button></div>
   <div id="paragraphInsFields" hidden>
+    <h4 class="paragraph-setting-title">글자 크기</h4>
     <div class="field"><label><input type="checkbox" id="paragraphUseDefault" checked> 기본값 사용</label></div>
     <div class="field"><label for="paragraphFontSize">개별 글자 크기 (8–48px)</label><input type="number" id="paragraphFontSize" min="8" max="48" step="1"><p class="hint" id="paragraphFontHint"></p></div>
+    <div class="paragraph-glass-settings">
+      <h4 class="paragraph-setting-title">유리 배경</h4>
+      <div class="field"><label><input type="checkbox" id="paragraphGlassEnabled"> 유리 배경 켜기</label></div>
+      <div class="field"><label for="paragraphGlassOpacity">유리 농도</label><div class="row"><input type="range" id="paragraphGlassOpacity" min="0" max="100" step="1" value="35" disabled><span class="val" id="paragraphGlassOpacityVal">35%</span></div></div>
+    </div>
   </div>
   <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="insUseDefault" checked> 이 방향의 기본 설정 따름</label></div>
   <div id="insFields">
@@ -515,6 +526,19 @@ function applyBubbleStyle(block){
   img.style.transform=`translate(-50%,-50%) translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
 }
 // Block-owned override survives moves/DOM snapshots without an orphan registry.
+function paragraphOverride(block){
+  try{const value=JSON.parse(block.dataset.paragraphOverride||'{}');return value && typeof value==='object' && !Array.isArray(value)?value:{};}catch(e){return {};}
+}
+function updateParagraphOverride(block,patch){
+  const value={...paragraphOverride(block),...patch};
+  Object.keys(value).forEach(key=>{if(value[key]===undefined)delete value[key];});
+  if(Object.keys(value).length)block.dataset.paragraphOverride=JSON.stringify(value);
+  else delete block.dataset.paragraphOverride;
+}
+function paragraphGlass(block){
+  const glass=paragraphOverride(block).glass;
+  return {enabled:glass?.enabled===true,opacity:typeof glass?.opacity==='number' && Number.isFinite(glass.opacity)?clamp(glass.opacity,0,100):35};
+}
 function effectiveParagraphFontSize(block){
   try{
     const value=JSON.parse(block.dataset.paragraphOverride||'{}').fontSize;
@@ -526,8 +550,18 @@ function applyParagraphStyle(block){
   if(!block || !block.classList.contains('paragraph-block')) return;
   const el=block.querySelector('.editable');
   if(!el)return;
+  const glass=paragraphGlass(block);
+  const glassScale=clamp((canvas.clientWidth-2*state.bg.padX)/canvas.clientWidth,0,1);
+  block.classList.toggle('has-glass',glass.enabled);
+  let layer=block.querySelector('.paragraph-glass');
+  if(glass.enabled && !layer){
+    layer=document.createElement('div');layer.className='paragraph-glass';layer.setAttribute('aria-hidden','true');
+    block.querySelector('.block-inner').insertBefore(layer,el);
+  }
+  if(layer){layer.hidden=!glass.enabled;layer.style.backgroundColor=`rgba(255,255,255,${glass.opacity/100})`;}
+  el.style.padding=glass.enabled?(state.bg.padX*glassScale)+'px':'2px 0';
   el.style.fontFamily=fontCSSValue(state.fontFamily);
-  el.style.fontSize=effectiveParagraphFontSize(block)+'px';
+  el.style.fontSize=(effectiveParagraphFontSize(block)*(glass.enabled?glassScale:1))+'px';
   el.style.lineHeight=state.lineHeight;
   el.style.color=state.textColor;
 }
@@ -576,6 +610,7 @@ function renderBackground(){
   blockList.style.padding=`${b.padY}px ${b.padX}px`;
   blockList.style.setProperty('--mobile-pad-x',b.padX+'px');
   canvas.style.borderRadius=b.round?'14px':'0';
+  $$('.paragraph-block').forEach(applyParagraphStyle);
   relayout();
 }
 
@@ -1069,27 +1104,44 @@ function setInspectorMode(paragraph){
 }
 function openParagraphInspector(block){
   activeParagraphId=block.dataset.id;activeBubbleId=null;selectBlock(block);setInspectorMode(true);
-  const useDefault=!block.dataset.paragraphOverride;
+  const fontSize=paragraphOverride(block).fontSize;
+  const useDefault=typeof fontSize!=='number'||!Number.isFinite(fontSize);
   $('#paragraphUseDefault').checked=useDefault;
   $('#paragraphFontSize').value=effectiveParagraphFontSize(block);
   $('#paragraphFontSize').disabled=useDefault;
   $('#paragraphFontHint').textContent='현재 기본 글자 크기: '+state.fontSize+'px';
+  const glass=paragraphGlass(block);
+  $('#paragraphGlassEnabled').checked=glass.enabled;
+  $('#paragraphGlassOpacity').value=glass.opacity;
+  $('#paragraphGlassOpacity').disabled=!glass.enabled;
+  $('#paragraphGlassOpacityVal').textContent=glass.opacity+'%';
   inspector.classList.add('show');showBackdrop();hideSelectionToolbar();
 }
 function activeParagraph(){return blockList.querySelector('.paragraph-block[data-id="'+activeParagraphId+'"]')}
 $('#paragraphUseDefault').addEventListener('change',e=>{
   const block=activeParagraph();if(!block)return;
-  if(e.target.checked)delete block.dataset.paragraphOverride;
-  else block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(state.fontSize,8,48)});
+  updateParagraphOverride(block,{fontSize:e.target.checked?undefined:clamp(state.fontSize,8,48)});
   applyParagraphStyle(block);openParagraphInspector(block);relayout();
 });
 $('#paragraphFontSize').addEventListener('input',e=>{
   const block=activeParagraph(),value=e.target.valueAsNumber;
   if(!block||!Number.isFinite(value))return;
-  block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(value,8,48)});
+  updateParagraphOverride(block,{fontSize:clamp(value,8,48)});
   applyParagraphStyle(block);relayout();
 });
 $('#paragraphFontSize').addEventListener('change',()=>{const block=activeParagraph();if(block)$('#paragraphFontSize').value=effectiveParagraphFontSize(block)});
+$('#paragraphGlassEnabled').addEventListener('change',e=>{
+  const block=activeParagraph();if(!block)return;
+  updateParagraphOverride(block,{glass:{...paragraphGlass(block),enabled:e.target.checked}});
+  applyParagraphStyle(block);openParagraphInspector(block);relayout();
+});
+$('#paragraphGlassOpacity').addEventListener('input',e=>{
+  const block=activeParagraph();if(!block)return;
+  const opacity=clamp(+e.target.value,0,100);
+  updateParagraphOverride(block,{glass:{...paragraphGlass(block),opacity}});
+  $('#paragraphGlassOpacityVal').textContent=opacity+'%';
+  applyParagraphStyle(block);
+});
 function openBubbleInspector(block){ activeParagraphId=null;setInspectorMode(false); activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
 function closeInspector(){activeParagraphId=null;activeBubbleId=null;inspector.classList.remove('show');hideBackdropIfFree()}
 $('#closeInspector').addEventListener('click',closeInspector);backdrop.addEventListener('click',()=>{closeInspector();closeSidebar()});

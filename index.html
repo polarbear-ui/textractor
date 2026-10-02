@@ -130,8 +130,14 @@
 <div class="inspector" id="bubbleInspector">
   <div class="inspector-head"><h3>말풍선 개별 설정</h3><button class="close" id="closeInspector">✕</button></div>
   <div id="paragraphInsFields" hidden>
+    <h4 class="paragraph-setting-title">글자 크기</h4>
     <div class="field"><label><input type="checkbox" id="paragraphUseDefault" checked> 기본값 사용</label></div>
     <div class="field"><label for="paragraphFontSize">개별 글자 크기 (8–48px)</label><input type="number" id="paragraphFontSize" min="8" max="48" step="1"><p class="hint" id="paragraphFontHint"></p></div>
+    <div class="paragraph-glass-settings">
+      <h4 class="paragraph-setting-title">유리 배경</h4>
+      <div class="field"><label><input type="checkbox" id="paragraphGlassEnabled"> 유리 배경 켜기</label></div>
+      <div class="field"><label for="paragraphGlassOpacity">유리 농도</label><div class="row"><input type="range" id="paragraphGlassOpacity" min="0" max="100" step="1" value="35" disabled><span class="val" id="paragraphGlassOpacityVal">35%</span></div></div>
+    </div>
   </div>
   <div class="field"><label style="display:flex;align-items:center;gap:7px;cursor:pointer"><input type="checkbox" id="insUseDefault" checked> 이 방향의 기본 설정 따름</label></div>
   <div id="insFields">

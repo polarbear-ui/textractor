@@ -191,6 +191,19 @@ function applyBubbleStyle(block){
   img.style.transform=`translate(-50%,-50%) translate(${cfg.profileX||0}px,${cfg.profileY||0}px) scale(${(cfg.profileZoom||100)/100})`;
 }
 // Block-owned override survives moves/DOM snapshots without an orphan registry.
+function paragraphOverride(block){
+  try{const value=JSON.parse(block.dataset.paragraphOverride||'{}');return value && typeof value==='object' && !Array.isArray(value)?value:{};}catch(e){return {};}
+}
+function updateParagraphOverride(block,patch){
+  const value={...paragraphOverride(block),...patch};
+  Object.keys(value).forEach(key=>{if(value[key]===undefined)delete value[key];});
+  if(Object.keys(value).length)block.dataset.paragraphOverride=JSON.stringify(value);
+  else delete block.dataset.paragraphOverride;
+}
+function paragraphGlass(block){
+  const glass=paragraphOverride(block).glass;
+  return {enabled:glass?.enabled===true,opacity:typeof glass?.opacity==='number' && Number.isFinite(glass.opacity)?clamp(glass.opacity,0,100):35};
+}
 function effectiveParagraphFontSize(block){
   try{
     const value=JSON.parse(block.dataset.paragraphOverride||'{}').fontSize;
@@ -202,8 +215,18 @@ function applyParagraphStyle(block){
   if(!block || !block.classList.contains('paragraph-block')) return;
   const el=block.querySelector('.editable');
   if(!el)return;
+  const glass=paragraphGlass(block);
+  const glassScale=clamp((canvas.clientWidth-2*state.bg.padX)/canvas.clientWidth,0,1);
+  block.classList.toggle('has-glass',glass.enabled);
+  let layer=block.querySelector('.paragraph-glass');
+  if(glass.enabled && !layer){
+    layer=document.createElement('div');layer.className='paragraph-glass';layer.setAttribute('aria-hidden','true');
+    block.querySelector('.block-inner').insertBefore(layer,el);
+  }
+  if(layer){layer.hidden=!glass.enabled;layer.style.backgroundColor=`rgba(255,255,255,${glass.opacity/100})`;}
+  el.style.padding=glass.enabled?(state.bg.padX*glassScale)+'px':'2px 0';
   el.style.fontFamily=fontCSSValue(state.fontFamily);
-  el.style.fontSize=effectiveParagraphFontSize(block)+'px';
+  el.style.fontSize=(effectiveParagraphFontSize(block)*(glass.enabled?glassScale:1))+'px';
   el.style.lineHeight=state.lineHeight;
   el.style.color=state.textColor;
 }
@@ -252,6 +275,7 @@ function renderBackground(){
   blockList.style.padding=`${b.padY}px ${b.padX}px`;
   blockList.style.setProperty('--mobile-pad-x',b.padX+'px');
   canvas.style.borderRadius=b.round?'14px':'0';
+  $$('.paragraph-block').forEach(applyParagraphStyle);
   relayout();
 }
 
@@ -745,27 +769,44 @@ function setInspectorMode(paragraph){
 }
 function openParagraphInspector(block){
   activeParagraphId=block.dataset.id;activeBubbleId=null;selectBlock(block);setInspectorMode(true);
-  const useDefault=!block.dataset.paragraphOverride;
+  const fontSize=paragraphOverride(block).fontSize;
+  const useDefault=typeof fontSize!=='number'||!Number.isFinite(fontSize);
   $('#paragraphUseDefault').checked=useDefault;
   $('#paragraphFontSize').value=effectiveParagraphFontSize(block);
   $('#paragraphFontSize').disabled=useDefault;
   $('#paragraphFontHint').textContent='현재 기본 글자 크기: '+state.fontSize+'px';
+  const glass=paragraphGlass(block);
+  $('#paragraphGlassEnabled').checked=glass.enabled;
+  $('#paragraphGlassOpacity').value=glass.opacity;
+  $('#paragraphGlassOpacity').disabled=!glass.enabled;
+  $('#paragraphGlassOpacityVal').textContent=glass.opacity+'%';
   inspector.classList.add('show');showBackdrop();hideSelectionToolbar();
 }
 function activeParagraph(){return blockList.querySelector('.paragraph-block[data-id="'+activeParagraphId+'"]')}
 $('#paragraphUseDefault').addEventListener('change',e=>{
   const block=activeParagraph();if(!block)return;
-  if(e.target.checked)delete block.dataset.paragraphOverride;
-  else block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(state.fontSize,8,48)});
+  updateParagraphOverride(block,{fontSize:e.target.checked?undefined:clamp(state.fontSize,8,48)});
   applyParagraphStyle(block);openParagraphInspector(block);relayout();
 });
 $('#paragraphFontSize').addEventListener('input',e=>{
   const block=activeParagraph(),value=e.target.valueAsNumber;
   if(!block||!Number.isFinite(value))return;
-  block.dataset.paragraphOverride=JSON.stringify({fontSize:clamp(value,8,48)});
+  updateParagraphOverride(block,{fontSize:clamp(value,8,48)});
   applyParagraphStyle(block);relayout();
 });
 $('#paragraphFontSize').addEventListener('change',()=>{const block=activeParagraph();if(block)$('#paragraphFontSize').value=effectiveParagraphFontSize(block)});
+$('#paragraphGlassEnabled').addEventListener('change',e=>{
+  const block=activeParagraph();if(!block)return;
+  updateParagraphOverride(block,{glass:{...paragraphGlass(block),enabled:e.target.checked}});
+  applyParagraphStyle(block);openParagraphInspector(block);relayout();
+});
+$('#paragraphGlassOpacity').addEventListener('input',e=>{
+  const block=activeParagraph();if(!block)return;
+  const opacity=clamp(+e.target.value,0,100);
+  updateParagraphOverride(block,{glass:{...paragraphGlass(block),opacity}});
+  $('#paragraphGlassOpacityVal').textContent=opacity+'%';
+  applyParagraphStyle(block);
+});
 function openBubbleInspector(block){ activeParagraphId=null;setInspectorMode(false); activeBubbleId=block.dataset.id; selectBlock(block); const side=block.dataset.side, base={...state.bubble[side],profile:assets[side+'Profile']}; const ov=bubbleOverrides.get(activeBubbleId)||{useDefault:true}; $('#insUseDefault').checked=ov.useDefault!==false; const c=ov.useDefault!==false?base:{...base,...ov}; $('#insBg').value=c.bg;$('#insOpacity').value=c.opacity;$('#insOpacityVal').textContent=c.opacity+'%';$('#insText').value=c.text;$('#insFontSize').value=c.fontSize==null?'':c.fontSize;$('#insShadow').value=c.shadow;$('#insShadowVal').textContent=c.shadow;$('#insProfileShow').checked=!!c.showProfile;$('#insProfileZoom').value=c.profileZoom;$('#insProfileZoomVal').textContent=c.profileZoom+'%';$('#insProfileX').value=c.profileX;$('#insProfileXVal').textContent=c.profileX;$('#insProfileY').value=c.profileY;$('#insProfileYVal').textContent=c.profileY; insFields.classList.toggle('disabled',ov.useDefault!==false); inspector.classList.add('show');showBackdrop();hideSelectionToolbar(); }
 function closeInspector(){activeParagraphId=null;activeBubbleId=null;inspector.classList.remove('show');hideBackdropIfFree()}
 $('#closeInspector').addEventListener('click',closeInspector);backdrop.addEventListener('click',()=>{closeInspector();closeSidebar()});
